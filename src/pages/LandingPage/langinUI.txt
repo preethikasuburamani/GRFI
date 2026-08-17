@@ -1,0 +1,43 @@
+┌─────────────────────────────────────────┐
+│ GRFI       How it works   Features      │
+│                              [Start]     │
+├─────────────────────────────────────────┤
+│                                         │
+│   Practice the interview                │
+│   you're actually going to face.       │
+│                                         │
+│   Upload your CV + job description     │
+│   and get a personalised AI interview. │
+│                                         │
+│   [ Start Interview ]  [ See how it works ]
+│                                         │
+│                     ┌────────────────┐  │
+│                     │ AI Interviewer │  │
+│                     │                │  │
+│                     │ "Tell me about │  │
+│                     │ your React     │  │
+│                     │ experience."   │  │
+│                     └────────────────┘  │
+│                                         │
+├─────────────────────────────────────────┤
+│                                         │
+│              HOW IT WORKS               │
+│                                         │
+│    01              02              03   │
+│ Upload CV       Add Job          Interview
+│                                         │
+├─────────────────────────────────────────┤
+│                                         │
+│        WHY GRFI?                        │
+│                                         │
+│  CV-based    Job-specific    Feedback   │
+│  questions   questions       & scoring  │
+│                                         │
+├─────────────────────────────────────────┤
+│                                         │
+│          READY TO PRACTICE?             │
+│          [ Start Interview ]            │
+│                                         │
+├─────────────────────────────────────────┤
+│ GRFI                         © 2026      │
+└─────────────────────────────────────────┘
