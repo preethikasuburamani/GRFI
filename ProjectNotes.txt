@@ -1,0 +1,17 @@
+font size
+=========
+large font-size :24px;
+font-size: 14px,
+
+font color
+===========
+font coloe color: #555555;
+sub color  color: #777777; (gray)
+black color: color: #111111;
+
+button
+=======
+.navbar__button:hover {
+  background: #2b2b2b;
+  transform: translateY(-1px);
+}

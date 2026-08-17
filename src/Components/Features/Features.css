@@ -1,0 +1,61 @@
+.features {
+  padding: 110px 0;
+
+  background: #ffffff;
+}
+
+.features__grid {
+  display: grid;
+
+  grid-template-columns: repeat(3, 1fr);
+
+  gap: 1px;
+
+  margin-top: 55px;
+
+  border: 1px solid #e5e5e5;
+}
+
+.feature {
+  min-height: 220px;
+
+  padding: 30px;
+
+  border: 1px solid #e5e5e5;
+
+  background: #ffffff;
+
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+
+.feature:hover {
+  background: #fafafa;
+}
+
+.feature__number {
+  font-size: 11px;
+
+  font-weight: 700;
+
+  color: #999999;
+}
+
+.feature h3 {
+  margin-top: 35px;
+
+  font-size: 18px;
+
+  color: #111111;
+}
+
+.feature p {
+  margin-top: 10px;
+
+  font-size: 14px;
+
+  line-height: 1.7;
+
+  color: #777777;
+}

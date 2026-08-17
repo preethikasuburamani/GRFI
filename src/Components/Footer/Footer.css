@@ -1,0 +1,35 @@
+.footer {
+  border-top: 1px solid #eeeeee;
+
+    background: #f0eeee;
+}
+
+.footer__container {
+  min-height: 100px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+}
+
+.footer__logo {
+  font-size: 18px;
+
+  font-weight: 800;
+}
+
+.footer p {
+  margin-top: 2px;
+
+  font-size: 11px;
+
+  color: #999999;
+}
+
+.footer__container > span {
+  font-size: 12px;
+
+  color: #999999;
+}

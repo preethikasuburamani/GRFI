@@ -1,6 +1,6 @@
-import "./LandingPage.css"
+import "./Nav.css"
 
-const LandingPage = () => {
+const Nav = () => {
   return (
      <header className="navbar">
       <div className="container navbar__container">
@@ -26,4 +26,4 @@ const LandingPage = () => {
   )
 }
 
-export default LandingPage
+export default Nav

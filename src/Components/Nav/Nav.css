@@ -1,7 +1,7 @@
 .navbar {
   width: 100%;
   border-bottom: 1px solid #eeeeee;
-  background: #ffffff;
+  background: #f0eeee;
 }
 
 .navbar__container {
@@ -67,5 +67,5 @@
 
 .navbar__button:hover {
   background: #2b2b2b;
-  transform: translateY(-1px);
+  transform: translateX(-1px);
 }
