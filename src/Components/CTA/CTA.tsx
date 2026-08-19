@@ -1,6 +1,9 @@
+import { useNavigate } from "react-router-dom";
 import "./CTA.css";
 
 function CTA() {
+
+  const navigate = useNavigate();
   return (
     <section className="cta">
 
@@ -18,7 +21,7 @@ function CTA() {
           Practice with GRFI.
         </p>
 
-        <button className="cta__button">
+        <button className="cta__button" onClick={() => navigate("/interviewSetUp")}>
           Start Interview →
         </button>
 

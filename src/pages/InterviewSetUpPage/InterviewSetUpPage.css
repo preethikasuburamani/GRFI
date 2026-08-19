@@ -1,0 +1,335 @@
+.setup-page {
+  min-height: 100vh;
+
+  padding: 60px 20px 100px;
+
+  background: #f7f7f7;
+}
+
+.setup-page__container {
+  width: min(760px, 100%);
+  margin: 0 auto;
+}
+
+/* Header */
+
+.setup-page__header {
+  margin-bottom: 45px;
+}
+
+.setup-page__header > span {
+  font-size: 10px;
+  font-weight: 700;
+
+  letter-spacing: 1.5px;
+
+  color: #999999;
+}
+
+.setup-page__header h1 {
+  margin-top: 12px;
+
+  font-size: clamp(34px, 5vw, 46px);
+
+  line-height: 1.1;
+
+  letter-spacing: -1.5px;
+
+  color: #111111;
+}
+
+.setup-page__header p {
+  max-width: 600px;
+
+  margin-top: 12px;
+
+  font-size: 15px;
+
+  color: #777777;
+}
+
+/* Sections */
+
+.setup-section {
+  padding: 30px;
+
+  margin-bottom: 20px;
+
+  border: 1px solid #e3e3e3;
+
+  border-radius: 16px;
+
+  background: #ffffff;
+}
+
+.setup-section__heading {
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+}
+
+.setup-section__heading > div {
+  display: flex;
+  align-items: center;
+
+  gap: 12px;
+}
+
+.setup-section__number {
+  font-size: 11px;
+
+  font-weight: 700;
+
+  color: #999999;
+}
+
+.setup-section h2 {
+  font-size: 18px;
+
+  font-weight: 700;
+
+  color: #111111;
+}
+
+.required,
+.optional {
+  padding: 5px 9px;
+
+  border-radius: 20px;
+
+  font-size: 10px;
+
+  font-weight: 600;
+}
+
+.required {
+  background: #f1f1f1;
+  color: #555555;
+}
+
+.optional {
+  background: #fafafa;
+  color: #999999;
+}
+
+.setup-section__description {
+  margin: 12px 0 22px 30px;
+
+  font-size: 13px;
+
+  line-height: 1.6;
+
+  color: #777777;
+}
+
+/* Job tabs */
+
+.job-tabs {
+  display: flex;
+
+  gap: 5px;
+
+  padding: 4px;
+
+  margin-top: 10px;
+
+  border-radius: 9px;
+
+  background: #f2f2f2;
+}
+
+.job-tabs__button {
+  flex: 1;
+
+  padding: 10px;
+
+  border: none;
+
+  border-radius: 7px;
+
+  background: transparent;
+
+  color: #777777;
+
+  font-size: 12px;
+
+  font-weight: 600;
+}
+
+.job-tabs__button.active {
+  background: #ffffff;
+
+  color: #111111;
+
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* Job description */
+
+.job-input {
+  margin-top: 18px;
+}
+
+.job-input textarea {
+  width: 100%;
+
+  resize: vertical;
+
+  padding: 15px;
+
+  border: 1px solid #dddddd;
+
+  border-radius: 10px;
+
+  outline: none;
+
+  font-size: 13px;
+
+  line-height: 1.6;
+
+  color: #222222;
+
+  transition: border-color 0.2s ease;
+}
+
+.job-input textarea:focus {
+  border-color: #999999;
+}
+
+.job-input textarea::placeholder {
+  color: #aaaaaa;
+}
+
+.job-input > span {
+  display: block;
+
+  margin-top: 8px;
+
+  font-size: 10px;
+
+  color: #aaaaaa;
+}
+
+/* Role */
+
+.role-input {
+  margin-top: 20px;
+}
+
+.role-input label {
+  display: block;
+
+  margin-bottom: 8px;
+
+  font-size: 12px;
+
+  font-weight: 600;
+
+  color: #444444;
+}
+
+.role-input select {
+  width: 100%;
+
+  padding: 13px;
+
+  border: 1px solid #dddddd;
+
+  border-radius: 9px;
+
+  background: #ffffff;
+
+  outline: none;
+
+  font-size: 13px;
+
+  color: #333333;
+
+  cursor: pointer;
+}
+
+.role-input select:focus {
+  border-color: #999999;
+}
+
+/* Footer */
+
+.setup-page__footer {
+  text-align: center;
+
+  margin-top: 30px;
+}
+
+.setup-page__continue {
+  min-width: 180px;
+
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 12px;
+
+  padding: 14px 20px;
+
+  border: none;
+
+  border-radius: 9px;
+
+  background: #111111;
+
+  color: #ffffff;
+
+  font-size: 13px;
+
+  font-weight: 600;
+
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.setup-page__continue:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.setup-page__continue:disabled {
+  opacity: 0.35;
+
+  cursor: not-allowed;
+}
+
+.setup-page__footer p {
+  margin-top: 10px;
+
+  font-size: 10px;
+
+  color: #999999;
+}
+
+/* Responsive */
+
+@media (max-width: 600px) {
+  .setup-page {
+    padding-top: 35px;
+  }
+
+  .setup-section {
+    padding: 20px;
+  }
+
+  .setup-section__heading {
+    align-items: flex-start;
+  }
+
+  .setup-section__description {
+    margin-left: 0;
+  }
+
+  .job-tabs {
+    flex-direction: column;
+  }
+}

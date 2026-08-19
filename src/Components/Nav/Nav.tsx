@@ -1,6 +1,9 @@
+import { useNavigate } from "react-router-dom";
 import "./Nav.css"
 
 const Nav = () => {
+
+  const navigate = useNavigate();
   return (
      <header className="navbar">
       <div className="container navbar__container">
@@ -16,7 +19,7 @@ const Nav = () => {
           <a href="#how-it-works">How it works</a>
           <a href="#features">Features</a>
 
-          <button className="navbar__button">
+          <button className="navbar__button" onClick={() => navigate("/interviewSetUp")}>
             Start Interview
           </button>
         </nav>

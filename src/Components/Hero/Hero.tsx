@@ -1,6 +1,8 @@
+import { useNavigate } from "react-router-dom";
 import "./Hero.css";
 
 function Hero() {
+  const navigate = useNavigate();
   return (
     <section className="hero">
 
@@ -26,7 +28,7 @@ function Hero() {
 
           <div className="hero__actions">
 
-            <button className="hero__primary-button">
+            <button className="hero__primary-button" onClick={() => navigate("/interviewSetUp")}>
               Start Interview
               <span>→</span>
             </button>
