@@ -1,10 +1,12 @@
 import { useState } from "react";
 import FileUpload from "../../Components/Interview/FileUpload";
 import "./InterviewSetUpPage.css";
+import { useNavigate } from "react-router-dom";
 
 type JobInputType = "jd" | "role";
 
 function InterviewSetupPage() {
+
   const [jobInputType, setJobInputType] =
     useState<JobInputType>("jd");
 
@@ -13,6 +15,7 @@ function InterviewSetupPage() {
 
   const [role, setRole] = useState("");
 
+  const navigate = useNavigate();
   return (
     <main className="setup-page">
 
@@ -211,6 +214,7 @@ function InterviewSetupPage() {
             type="button"
             className="setup-page__continue"
             disabled={!selectedFile}
+            onClick={() => navigate("/interviewConfig")}
           >
             Continue
             <span>→</span>
