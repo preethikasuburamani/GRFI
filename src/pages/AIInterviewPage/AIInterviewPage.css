@@ -1,0 +1,681 @@
+.realtime-interview {
+  min-height: 100vh;
+
+  padding: 25px 30px 50px;
+
+  background: #f5f5f5;
+}
+
+/* Header */
+
+.realtime-interview__header {
+  max-width: 1400px;
+
+  margin: 0 auto 30px;
+
+  display: grid;
+
+  grid-template-columns: 1fr auto 1fr;
+
+  align-items: center;
+}
+
+.realtime-interview__logo {
+  font-size: 21px;
+
+  font-weight: 800;
+
+  letter-spacing: -0.8px;
+
+  color: #111111;
+}
+
+.realtime-interview__header span {
+  font-size: 10px;
+
+  color: #999999;
+}
+
+.realtime-interview__progress {
+  padding: 8px 14px;
+
+  border-radius: 20px;
+
+  background: #ffffff;
+
+  font-size: 11px;
+
+  font-weight: 600;
+
+  color: #555555;
+}
+
+.realtime-interview__exit {
+  justify-self: end;
+
+  padding: 9px 15px;
+
+  border: 1px solid #dddddd;
+
+  border-radius: 8px;
+
+  background: #ffffff;
+
+  color: #666666;
+
+  font-size: 11px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+/* Main */
+
+.realtime-interview__content {
+  max-width: 1400px;
+
+  margin: 0 auto;
+
+  display: grid;
+
+  grid-template-columns: 1fr 1fr;
+
+  gap: 20px;
+
+  align-items: start;
+}
+
+/* AI */
+
+.ai-interviewer {
+  min-height: 720px;
+
+  padding: 35px;
+
+  display: flex;
+
+  flex-direction: column;
+
+  border-radius: 18px;
+
+  background: #111111;
+
+  color: #ffffff;
+}
+
+.ai-interviewer__top {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+}
+
+.ai-interviewer__status {
+  font-size: 11px !important;
+
+  color: #ffffff !important;
+}
+
+.ai-interviewer__speaking {
+  padding: 6px 10px;
+
+  border-radius: 20px;
+
+  background: #292929;
+
+  color: #dddddd !important;
+}
+
+/* Avatar */
+
+.ai-avatar {
+  flex: 1;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+}
+
+.ai-avatar__circle {
+  width: 150px;
+
+  height: 150px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  border: 1px solid #555555;
+
+  border-radius: 50%;
+
+  background: #222222;
+
+  font-size: 32px;
+
+  font-weight: 800;
+}
+
+/* Question */
+
+.ai-question {
+  margin-top: 20px;
+}
+
+.ai-question > span {
+  font-size: 9px;
+
+  font-weight: 700;
+
+  letter-spacing: 1.5px;
+
+  color: #888888 !important;
+}
+
+.ai-question h1 {
+  margin-top: 12px;
+
+  font-size: clamp(24px, 3vw, 34px);
+
+  line-height: 1.3;
+
+  letter-spacing: -0.7px;
+}
+
+/* Audio */
+
+.ai-audio-status {
+  margin-top: 30px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  font-size: 11px;
+
+  color: #999999 !important;
+}
+
+.audio-bars {
+  display: flex;
+
+  align-items: center;
+
+  gap: 3px;
+
+  height: 20px;
+}
+
+.audio-bars i {
+  width: 3px;
+
+  height: 8px;
+
+  border-radius: 3px;
+
+  background: #888888;
+
+  animation: audio-wave 1s ease-in-out infinite;
+}
+
+.audio-bars i:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.audio-bars i:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+.audio-bars i:nth-child(4) {
+  animation-delay: 0.3s;
+}
+
+.audio-bars i:nth-child(5) {
+  animation-delay: 0.2s;
+}
+
+.audio-bars i:nth-child(6) {
+  animation-delay: 0.1s;
+}
+
+@keyframes audio-wave {
+  0%,
+  100% {
+    height: 7px;
+  }
+
+  50% {
+    height: 19px;
+  }
+}
+
+/* Candidate */
+
+.candidate-panel {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 20px;
+}
+
+/* Camera */
+
+.candidate-camera {
+  position: relative;
+
+  width: 100%;
+
+  aspect-ratio: 16 / 9;
+
+  overflow: hidden;
+
+  border-radius: 18px;
+
+  background: #1a1a1a;
+}
+
+.candidate-camera video {
+  width: 100%;
+
+  height: 100%;
+
+  display: block;
+
+  object-fit: cover;
+
+  transform: scaleX(-1);
+}
+
+.camera-placeholder {
+  position: absolute;
+
+  inset: 0;
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+
+  justify-content: center;
+
+  color: #ffffff;
+}
+
+.camera-placeholder div {
+  font-size: 35px;
+}
+
+.camera-placeholder p {
+  margin-top: 8px;
+
+  font-size: 12px;
+
+  color: #aaaaaa;
+}
+
+.camera-status {
+  position: absolute;
+
+  left: 15px;
+
+  bottom: 15px;
+
+  padding: 7px 10px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 6px;
+
+  border-radius: 20px;
+
+  background: rgba(0, 0, 0, 0.7);
+
+  color: #ffffff;
+
+  font-size: 10px;
+}
+
+.camera-status span {
+  width: 6px;
+
+  height: 6px;
+
+  border-radius: 50%;
+
+  background: #ffffff;
+}
+
+.camera-error {
+  padding: 12px;
+
+  border-radius: 8px;
+
+  background: #ffffff;
+
+  color: #777777;
+
+  font-size: 11px;
+
+  text-align: center;
+}
+
+/* Answer */
+
+.candidate-answer {
+  padding: 25px;
+
+  border: 1px solid #e1e1e1;
+
+  border-radius: 18px;
+
+  background: #ffffff;
+}
+
+.candidate-answer__header h2 {
+  font-size: 17px;
+
+  color: #111111;
+}
+
+.candidate-answer__header p {
+  margin-top: 5px;
+
+  font-size: 11px;
+
+  color: #999999;
+}
+
+/* Answer mode */
+
+.answer-mode {
+  display: flex;
+
+  gap: 5px;
+
+  padding: 4px;
+
+  margin-top: 20px;
+
+  border-radius: 9px;
+
+  background: #f1f1f1;
+}
+
+.answer-mode__button {
+  flex: 1;
+
+  padding: 10px;
+
+  border: none;
+
+  border-radius: 7px;
+
+  background: transparent;
+
+  color: #777777;
+
+  font-size: 12px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.answer-mode__button.active {
+  background: #ffffff;
+
+  color: #111111;
+
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* Type */
+
+.type-answer {
+  margin-top: 15px;
+
+  border: 1px solid #dddddd;
+
+  border-radius: 10px;
+
+  overflow: hidden;
+}
+
+.type-answer textarea {
+  display: block;
+
+  width: 100%;
+
+  min-height: 150px;
+
+  padding: 15px;
+
+  resize: vertical;
+
+  border: none;
+
+  outline: none;
+
+  font-size: 13px;
+
+  line-height: 1.6;
+}
+
+.answer-meta {
+  padding: 8px 12px;
+
+  border-top: 1px solid #eeeeee;
+
+  background: #fafafa;
+
+  text-align: right;
+
+  font-size: 9px;
+
+  color: #999999;
+}
+
+/* Speak */
+
+.speak-answer {
+  min-height: 250px;
+
+  margin-top: 15px;
+
+  padding: 20px;
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+
+  text-align: center;
+
+  border: 1px solid #dddddd;
+
+  border-radius: 10px;
+}
+
+.microphone-button {
+  width: 65px;
+
+  height: 65px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: #f1f1f1;
+
+  font-size: 25px;
+}
+
+.microphone-button.listening {
+  animation: microphone-pulse 1.3s infinite;
+}
+
+@keyframes microphone-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.15);
+  }
+
+  70% {
+    box-shadow: 0 0 0 18px rgba(0, 0, 0, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+  }
+}
+
+.speak-answer h3 {
+  margin-top: 15px;
+
+  font-size: 14px;
+}
+
+.speak-answer p {
+  max-width: 300px;
+
+  margin-top: 5px;
+
+  font-size: 11px;
+
+  line-height: 1.5;
+
+  color: #999999;
+}
+
+.speak-button {
+  margin-top: 15px;
+
+  padding: 10px 18px;
+
+  border: none;
+
+  border-radius: 8px;
+
+  background: #111111;
+
+  color: #ffffff;
+
+  font-size: 11px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.speech-transcript {
+  width: 100%;
+
+  margin-top: 15px;
+
+  padding: 10px;
+
+  border-radius: 7px;
+
+  background: #f7f7f7;
+
+  text-align: left;
+
+  font-size: 11px;
+
+  color: #777777;
+}
+
+/* Submit */
+
+.submit-answer {
+  width: 100%;
+
+  margin-top: 15px;
+
+  padding: 14px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 10px;
+
+  border: none;
+
+  border-radius: 9px;
+
+  background: #111111;
+
+  color: #ffffff;
+
+  font-size: 12px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.submit-answer:disabled {
+  opacity: 0.35;
+
+  cursor: not-allowed;
+}
+
+/* Responsive */
+
+@media (max-width: 900px) {
+  .realtime-interview__content {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-interviewer {
+    min-height: 500px;
+  }
+}
+
+@media (max-width: 600px) {
+  .realtime-interview {
+    padding: 20px 15px 40px;
+  }
+
+  .realtime-interview__header {
+    grid-template-columns: 1fr auto;
+  }
+
+  .realtime-interview__progress {
+    display: none;
+  }
+
+  .realtime-interview__exit {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .ai-interviewer {
+    padding: 25px;
+
+    min-height: 450px;
+  }
+
+  .candidate-answer {
+    padding: 20px;
+  }
+}
