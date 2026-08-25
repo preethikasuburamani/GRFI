@@ -1,10 +1,27 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
 import "./AIInterviewPage.css";
+
+import SpeechToText from "../../Components/InterviewParts/SpeechToText";
+
+import TextToSpeechAI from "../../Components/InterviewParts/TextToSpeechAI";
+
+/* =========================================================
+   Interview Question
+========================================================= */
 
 interface InterviewQuestion {
   id: number;
   question: string;
 }
+
+/* =========================================================
+   Mock Questions
+========================================================= */
 
 const mockQuestions: InterviewQuestion[] = [
   {
@@ -24,11 +41,31 @@ const mockQuestions: InterviewQuestion[] = [
   },
 ];
 
-function InterviewPage() {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+/* =========================================================
+   Interview Page
+========================================================= */
 
-  const [cameraError, setCameraError] = useState("");
-  const [isCameraOn, setIsCameraOn] = useState(false);
+function InterviewPage() {
+
+  /* =======================================================
+     CAMERA
+  ======================================================= */
+
+  const videoRef =
+    useRef<HTMLVideoElement | null>(null);
+
+  const mediaStreamRef =
+    useRef<MediaStream | null>(null);
+
+  /* =======================================================
+     STATE
+  ======================================================= */
+
+  const [cameraError, setCameraError] =
+    useState("");
+
+  const [isCameraOn, setIsCameraOn] =
+    useState(false);
 
   const [currentQuestionIndex, setCurrentQuestionIndex] =
     useState(0);
@@ -36,7 +73,8 @@ function InterviewPage() {
   const [answerMode, setAnswerMode] =
     useState<"type" | "speak">("type");
 
-  const [answer, setAnswer] = useState("");
+  const [answer, setAnswer] =
+    useState("");
 
   const [isListening, setIsListening] =
     useState(false);
@@ -44,86 +82,179 @@ function InterviewPage() {
   const currentQuestion =
     mockQuestions[currentQuestionIndex];
 
-  /*
-   * Start camera and microphone
-   */
+  /* =======================================================
+     CAMERA + MICROPHONE
+  ======================================================= */
+
   useEffect(() => {
-    let stream: MediaStream | null = null;
 
     const startMedia = async () => {
+
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true,
-        });
+
+        const stream =
+          await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true,
+          });
+
+        mediaStreamRef.current =
+          stream;
 
         if (videoRef.current) {
-          videoRef.current.srcObject = stream;
+
+          videoRef.current.srcObject =
+            stream;
+
         }
 
         setIsCameraOn(true);
+
       } catch (error) {
-        console.error(error);
+
+        console.error(
+          "Camera / microphone error:",
+          error
+        );
 
         setCameraError(
           "Camera and microphone permission is required for the interview."
         );
+
       }
+
     };
 
     startMedia();
 
-    /*
-     * Stop camera and microphone
-     * when leaving the page.
-     */
+    /* =====================================================
+       Cleanup Camera
+    ===================================================== */
+
     return () => {
-      stream?.getTracks().forEach((track) => {
-        track.stop();
-      });
+
+      mediaStreamRef.current
+        ?.getTracks()
+        .forEach((track) => {
+
+          track.stop();
+
+        });
+
     };
+
   }, []);
 
-  const handleSubmitAnswer = () => {
-    if (!answer.trim()) return;
+  /* =======================================================
+     ANSWER CHANGE
+  ======================================================= */
 
-    console.log("Candidate answer:", answer);
+  const handleAnswerChange = (
+    value: string
+  ) => {
+
+    setAnswer(value);
+
+  };
+
+  /* =======================================================
+     LISTENING STATE
+  ======================================================= */
+
+  const handleListeningChange = (
+    listening: boolean
+  ) => {
+
+    setIsListening(listening);
+
+  };
+
+  /* =======================================================
+     SUBMIT ANSWER
+  ======================================================= */
+
+  const handleSubmitAnswer = () => {
+
+    if (!answer.trim()) {
+      return;
+    }
+
+    console.log(
+      "Question:",
+      currentQuestion.question
+    );
+
+    console.log(
+      "Candidate Answer:",
+      answer
+    );
+
+    /* =====================================================
+       Next Question
+    ===================================================== */
 
     if (
       currentQuestionIndex <
       mockQuestions.length - 1
     ) {
+
       setCurrentQuestionIndex(
-        (previous) => previous + 1
+        (previous) =>
+          previous + 1
       );
 
       setAnswer("");
+
       setAnswerMode("type");
+
+      setIsListening(false);
+
     } else {
-      console.log("Interview completed");
+
+      console.log(
+        "Interview completed"
+      );
+
     }
+
   };
 
-  const handleStartSpeaking = () => {
-    setIsListening(true);
+  /* =======================================================
+     TYPE MODE
+  ======================================================= */
 
-    /*
-     * Speech recognition will be added next.
-     */
+  const handleTypeMode = () => {
+
+    setAnswerMode("type");
+
   };
 
-  const handleStopSpeaking = () => {
-    setIsListening(false);
+  /* =======================================================
+     SPEAK MODE
+  ======================================================= */
+
+  const handleSpeakMode = () => {
+
+    setAnswerMode("speak");
+
   };
+
+  /* =======================================================
+     JSX
+  ======================================================= */
 
   return (
+
     <main className="realtime-interview">
 
-      {/* Header */}
+      {/* =================================================
+          HEADER
+      ================================================= */}
 
       <header className="realtime-interview__header">
 
         <div>
+
           <div className="realtime-interview__logo">
             GRFI
           </div>
@@ -131,84 +262,110 @@ function InterviewPage() {
           <span>
             AI Interview Practice
           </span>
+
         </div>
 
         <div className="realtime-interview__progress">
+
           Question{" "}
-          {currentQuestionIndex + 1} of{" "}
+          {currentQuestionIndex + 1}
+          {" "}of{" "}
           {mockQuestions.length}
+
         </div>
 
         <button
           type="button"
           className="realtime-interview__exit"
         >
+
           End Interview
+
         </button>
 
       </header>
 
-      {/* Main layout */}
+      {/* =================================================
+          MAIN
+      ================================================= */}
 
       <div className="realtime-interview__content">
 
-        {/* Left - AI interviewer */}
+        {/* =================================================
+            AI INTERVIEWER
+        ================================================= */}
 
         <section className="ai-interviewer">
 
           <div className="ai-interviewer__top">
 
             <span className="ai-interviewer__status">
+
               ● AI Interviewer
+
             </span>
 
             <span className="ai-interviewer__speaking">
-              🔊 Ready
+
+              🔊 AI Voice
+
             </span>
 
           </div>
 
+          {/* AI Avatar */}
+
           <div className="ai-avatar">
+
             <div className="ai-avatar__circle">
+
               AI
+
             </div>
+
           </div>
+
+          {/* Question */}
 
           <div className="ai-question">
 
             <span>
-              QUESTION {currentQuestionIndex + 1}
+
+              QUESTION{" "}
+              {currentQuestionIndex + 1}
+
             </span>
 
             <h1>
+
               {currentQuestion.question}
+
             </h1>
 
           </div>
 
-          <div className="ai-audio-status">
-            <span>🔊</span>
+          {/* =================================================
+              TEXT TO SPEECH
+          ================================================= */}
 
-            <div className="audio-bars">
-              <i />
-              <i />
-              <i />
-              <i />
-              <i />
-              <i />
-              <i />
-            </div>
-
-            <span>
-              AI interviewer
-            </span>
-          </div>
+          <TextToSpeechAI
+            question={
+              currentQuestion.question
+            }
+            autoSpeak={true}
+          />
 
         </section>
 
-        {/* Right - Candidate */}
+        {/* =================================================
+            CANDIDATE
+        ================================================= */}
 
         <section className="candidate-panel">
+
+          {/* =================================================
+              CAMERA
+          ================================================= */}
 
           <div className="candidate-camera">
 
@@ -220,7 +377,9 @@ function InterviewPage() {
             />
 
             {!isCameraOn && (
+
               <div className="camera-placeholder">
+
                 <div>
                   📹
                 </div>
@@ -228,41 +387,62 @@ function InterviewPage() {
                 <p>
                   Starting camera...
                 </p>
+
               </div>
+
             )}
 
             <div className="camera-status">
+
               <span />
+
               Camera On
+
             </div>
 
           </div>
 
+          {/* Camera Error */}
+
           {cameraError && (
+
             <div className="camera-error">
+
               {cameraError}
+
             </div>
+
           )}
 
-          {/* Answer */}
+          {/* =================================================
+              ANSWER
+          ================================================= */}
 
           <div className="candidate-answer">
 
             <div className="candidate-answer__header">
 
               <div>
-                <h2>Your Answer</h2>
+
+                <h2>
+                  Your Answer
+                </h2>
 
                 <p>
                   Choose how you want to respond.
                 </p>
+
               </div>
 
             </div>
 
-            {/* Mode buttons */}
+            {/* =================================================
+                TYPE / SPEAK
+            ================================================= */}
 
             <div className="answer-mode">
+
+              {/* Type */}
 
               <button
                 type="button"
@@ -271,12 +451,16 @@ function InterviewPage() {
                     ? "answer-mode__button active"
                     : "answer-mode__button"
                 }
-                onClick={() =>
-                  setAnswerMode("type")
+                onClick={
+                  handleTypeMode
                 }
               >
+
                 ⌨️ Type
+
               </button>
+
+              {/* Speak */}
 
               <button
                 type="button"
@@ -285,96 +469,91 @@ function InterviewPage() {
                     ? "answer-mode__button active"
                     : "answer-mode__button"
                 }
-                onClick={() =>
-                  setAnswerMode("speak")
+                onClick={
+                  handleSpeakMode
                 }
               >
+
                 🎙️ Speak
+
               </button>
 
             </div>
 
-            {/* Typing */}
+            {/* =================================================
+                TYPE ANSWER
+            ================================================= */}
 
             {answerMode === "type" && (
+
               <div className="type-answer">
 
                 <textarea
                   value={answer}
                   onChange={(event) =>
-                    setAnswer(event.target.value)
+                    handleAnswerChange(
+                      event.target.value
+                    )
                   }
                   placeholder="Type your answer here..."
                   rows={6}
                 />
 
                 <div className="answer-meta">
+
                   <span>
-                    {answer.length} characters
+
+                    {answer.length}
+                    {" "}characters
+
                   </span>
+
                 </div>
 
               </div>
+
             )}
 
-            {/* Speaking */}
+            {/* =================================================
+                SPEAK ANSWER
+            ================================================= */}
 
             {answerMode === "speak" && (
-              <div className="speak-answer">
 
-                <div
-                  className={
-                    isListening
-                      ? "microphone-button listening"
-                      : "microphone-button"
-                  }
-                >
-                  🎙️
-                </div>
+              <SpeechToText
+                value={answer}
+                onTranscriptChange={
+                  handleAnswerChange
+                }
+                onListeningChange={
+                  handleListeningChange
+                }
+              />
 
-                <h3>
-                  {isListening
-                    ? "Listening..."
-                    : "Ready when you are"}
-                </h3>
-
-                <p>
-                  Speak naturally. Your answer will
-                  appear as text here.
-                </p>
-
-                <button
-                  type="button"
-                  className="speak-button"
-                  onClick={
-                    isListening
-                      ? handleStopSpeaking
-                      : handleStartSpeaking
-                  }
-                >
-                  {isListening
-                    ? "Stop Speaking"
-                    : "Start Speaking"}
-                </button>
-
-                <div className="speech-transcript">
-                  {answer ||
-                    "Your speech transcript will appear here..."}
-                </div>
-
-              </div>
             )}
 
-            {/* Submit */}
+            {/* =================================================
+                SUBMIT
+            ================================================= */}
 
             <button
               type="button"
               className="submit-answer"
-              disabled={!answer.trim()}
-              onClick={handleSubmitAnswer}
+              disabled={
+                !answer.trim() ||
+                isListening
+              }
+              onClick={
+                handleSubmitAnswer
+              }
             >
+
               Submit Answer
-              <span>→</span>
+
+              <span>
+                →
+              </span>
+
             </button>
 
           </div>
@@ -384,6 +563,7 @@ function InterviewPage() {
       </div>
 
     </main>
+
   );
 }
 
