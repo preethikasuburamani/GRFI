@@ -1,5 +1,6 @@
 import { useState } from "react";
 import FileUpload from "../../Components/Interview/FileUpload";
+import { extractCvText } from "../../services/cvTextExtractor";
 import "./InterviewSetUpPage.css";
 import { useNavigate } from "react-router-dom";
 
@@ -13,19 +14,192 @@ function InterviewSetupPage() {
   const [selectedFile, setSelectedFile] =
     useState<File | null>(null);
 
-  const [role, setRole] = useState("");
+  const [role, setRole] =
+    useState("");
+
+  const [jobDescription, setJobDescription] =
+    useState("");
+
+  const [isExtractingCv, setIsExtractingCv] =
+    useState(false);
+
+  const [cvError, setCvError] =
+    useState("");
 
   const navigate = useNavigate();
+
+  /* =========================================================
+     Handle CV Selection
+  ========================================================= */
+
+  const handleFileSelect = async (
+    file: File
+  ) => {
+
+    setSelectedFile(file);
+
+    setCvError("");
+
+    setIsExtractingCv(true);
+
+    try {
+
+      console.log(
+        "Extracting CV text..."
+      );
+
+      const cvText =
+        await extractCvText(
+          file
+        );
+
+      console.log(
+        "CV text extracted:",
+        cvText
+      );
+
+      /*
+       * Store the actual CV text.
+       */
+
+      sessionStorage.setItem(
+        "grfiCvText",
+        cvText
+      );
+
+      /*
+       * Store filename for display/reference.
+       */
+
+      sessionStorage.setItem(
+        "grfiCvFileName",
+        file.name
+      );
+
+    } catch (error) {
+
+      console.error(
+        "CV extraction failed:",
+        error
+      );
+
+      /*
+       * Remove old CV data if extraction
+       * failed.
+       */
+
+      sessionStorage.removeItem(
+        "grfiCvText"
+      );
+
+      sessionStorage.removeItem(
+        "grfiCvFileName"
+      );
+
+      setSelectedFile(null);
+
+      setCvError(
+        error instanceof Error
+          ? error.message
+          : "Unable to read your CV."
+      );
+
+    } finally {
+
+      setIsExtractingCv(
+        false
+      );
+
+    }
+  };
+
+  /* =========================================================
+     Continue
+  ========================================================= */
+
+  const handleContinue = () => {
+
+    /*
+     * Don't continue while CV is being processed.
+     */
+
+    if (
+      !selectedFile ||
+      isExtractingCv
+    ) {
+      return;
+    }
+
+    /*
+     * Make sure CV text exists.
+     */
+
+    const cvText =
+      sessionStorage.getItem(
+        "grfiCvText"
+      );
+
+    if (!cvText) {
+
+      setCvError(
+        "Your CV could not be processed. Please upload it again."
+      );
+
+      return;
+
+    }
+
+    /*
+     * Save job input type.
+     */
+
+    sessionStorage.setItem(
+      "grfiJobInputType",
+      jobInputType
+    );
+
+    /*
+     * Save role.
+     */
+
+    sessionStorage.setItem(
+      "grfiRole",
+      role
+    );
+
+    /*
+     * Save JD.
+     */
+
+    sessionStorage.setItem(
+      "grfiJobDescription",
+      jobDescription
+    );
+
+    /*
+     * Move to Step 2.
+     */
+
+    navigate(
+      "/interviewConfig"
+    );
+  };
+
   return (
+
     <main className="setup-page">
 
       <div className="setup-page__container">
 
-        {/* Header */}
+        {/* =================================================
+            Header
+        ================================================= */}
 
         <div className="setup-page__header">
 
-          <span>STEP 1 OF 2</span>
+          <span>
+            STEP 1 OF 2
+          </span>
 
           <h1>
             Set up your interview
@@ -38,13 +212,16 @@ function InterviewSetupPage() {
 
         </div>
 
-        {/* CV */}
+        {/* =================================================
+            CV
+        ================================================= */}
 
         <section className="setup-section">
 
           <div className="setup-section__heading">
 
             <div>
+
               <span className="setup-section__number">
                 01
               </span>
@@ -52,6 +229,7 @@ function InterviewSetupPage() {
               <h2>
                 Upload your CV
               </h2>
+
             </div>
 
             <span className="required">
@@ -61,25 +239,81 @@ function InterviewSetupPage() {
           </div>
 
           <p className="setup-section__description">
+
             We'll use your CV to create questions based on
             your actual experience, skills and projects.
+
           </p>
 
           <FileUpload
-            onFileSelect={(file) =>
-              setSelectedFile(file)
+            onFileSelect={
+              handleFileSelect
             }
           />
 
+          {/* =================================================
+              CV Processing
+          ================================================= */}
+
+          {isExtractingCv && (
+
+            <div className="cv-processing">
+
+              <span>
+                ⏳
+              </span>
+
+              <p>
+                Reading your CV...
+              </p>
+
+            </div>
+
+          )}
+
+          {/* =================================================
+              CV Error
+          ================================================= */}
+
+          {cvError && (
+
+            <div className="cv-error">
+
+              {cvError}
+
+            </div>
+
+          )}
+
+          {/* =================================================
+              CV Ready
+          ================================================= */}
+
+          {selectedFile &&
+            !isExtractingCv &&
+            !cvError && (
+
+              <div className="cv-success">
+
+                ✓ CV ready for your
+                personalised interview
+
+              </div>
+
+            )}
+
         </section>
 
-        {/* Job */}
+        {/* =================================================
+            Job
+        ================================================= */}
 
         <section className="setup-section">
 
           <div className="setup-section__heading">
 
             <div>
+
               <span className="setup-section__number">
                 02
               </span>
@@ -87,6 +321,7 @@ function InterviewSetupPage() {
               <h2>
                 Add your target job
               </h2>
+
             </div>
 
             <span className="optional">
@@ -96,11 +331,15 @@ function InterviewSetupPage() {
           </div>
 
           <p className="setup-section__description">
+
             Have a job description? Paste it. Don't have one?
             Select the role you're preparing for.
+
           </p>
 
-          {/* Tabs */}
+          {/* =================================================
+              Tabs
+          ================================================= */}
 
           <div className="job-tabs">
 
@@ -111,7 +350,9 @@ function InterviewSetupPage() {
                   ? "job-tabs__button active"
                   : "job-tabs__button"
               }
-              onClick={() => setJobInputType("jd")}
+              onClick={() =>
+                setJobInputType("jd")
+              }
             >
               Paste Job Description
             </button>
@@ -123,19 +364,34 @@ function InterviewSetupPage() {
                   ? "job-tabs__button active"
                   : "job-tabs__button"
               }
-              onClick={() => setJobInputType("role")}
+              onClick={() =>
+                setJobInputType("role")
+              }
             >
               Select a Role
             </button>
 
           </div>
 
-          {/* JD */}
+          {/* =================================================
+              JD
+          ================================================= */}
 
           {jobInputType === "jd" && (
+
             <div className="job-input">
 
               <textarea
+                value={
+                  jobDescription
+                }
+                onChange={(
+                  event
+                ) =>
+                  setJobDescription(
+                    event.target.value
+                  )
+                }
                 placeholder="Paste the job description here..."
                 rows={10}
               />
@@ -145,11 +401,15 @@ function InterviewSetupPage() {
               </span>
 
             </div>
+
           )}
 
-          {/* Role */}
+          {/* =================================================
+              Role
+          ================================================= */}
 
           {jobInputType === "role" && (
+
             <div className="role-input">
 
               <label htmlFor="role">
@@ -159,10 +419,15 @@ function InterviewSetupPage() {
               <select
                 id="role"
                 value={role}
-                onChange={(event) =>
-                  setRole(event.target.value)
+                onChange={(
+                  event
+                ) =>
+                  setRole(
+                    event.target.value
+                  )
                 }
               >
+
                 <option value="">
                   Select a role
                 </option>
@@ -175,12 +440,8 @@ function InterviewSetupPage() {
                   React Developer
                 </option>
 
-                <option value="javascript-developer">
-                  JavaScript Developer
-                </option>
-
-                <option value="typescript-developer">
-                  TypeScript Developer
+                <option value="backend-developer">
+                  Backend Developer
                 </option>
 
                 <option value="full-stack-developer">
@@ -199,25 +460,54 @@ function InterviewSetupPage() {
                   Web Developer
                 </option>
 
+                <option value="software-tester">
+                  Software Tester
+                </option>
+
+                <option value="devops-engineer">
+                  DevOps Engineer
+                </option>
+
+                <option value="project-manager">
+                  Project Manager
+                </option>
+
               </select>
 
             </div>
+
           )}
 
         </section>
 
-        {/* Continue */}
+        {/* =================================================
+            Footer
+        ================================================= */}
 
         <div className="setup-page__footer">
 
           <button
             type="button"
             className="setup-page__continue"
-            disabled={!selectedFile}
-            onClick={() => navigate("/interviewConfig")}
+            disabled={
+              !selectedFile ||
+              isExtractingCv
+            }
+            onClick={
+              handleContinue
+            }
           >
-            Continue
-            <span>→</span>
+
+            {isExtractingCv
+              ? "Reading CV..."
+              : "Continue"}
+
+            {!isExtractingCv && (
+              <span>
+                →
+              </span>
+            )}
+
           </button>
 
           <p>
@@ -229,6 +519,7 @@ function InterviewSetupPage() {
       </div>
 
     </main>
+
   );
 }
 

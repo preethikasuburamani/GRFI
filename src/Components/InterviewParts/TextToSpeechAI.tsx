@@ -1,112 +1,92 @@
-import { useEffect, useState } from "react";
-
-/* =========================================================
-   Props
-========================================================= */
+import { useEffect, useRef, useState } from "react";
 
 interface TextToSpeechAIProps {
-  question: string;
-  autoSpeak?: boolean;
+  text: string;
+  onStart?: () => void;
+  onEnd?: () => void;
 }
 
-/* =========================================================
-   Component
-========================================================= */
-
 function TextToSpeechAI({
-  question,
-  autoSpeak = true,
+  text,
+  onStart,
+  onEnd,
 }: TextToSpeechAIProps) {
 
-  const [isSpeaking, setIsSpeaking] =
-    useState(false);
+  const [
+    isSpeaking,
+    setIsSpeaking,
+  ] = useState(false);
 
-  /* =======================================================
-     Speak Question
-  ======================================================= */
+  const utteranceRef =
+    useRef<SpeechSynthesisUtterance | null>(null);
 
-  const speakQuestion = () => {
+  /*
+   * Speak the question
+   */
+  const speak = () => {
 
-    if (!question.trim()) {
+    if (!text.trim()) {
       return;
     }
 
-    /* Stop previous speech */
-
+    /*
+     * Stop anything currently speaking.
+     */
     window.speechSynthesis.cancel();
 
     const utterance =
-      new SpeechSynthesisUtterance(
-        question
-      );
-
-    utterance.lang = "en-GB";
+      new SpeechSynthesisUtterance(text);
 
     utterance.rate = 0.95;
-
     utterance.pitch = 1;
-
     utterance.volume = 1;
-
-    /* =====================================================
-       Speech Started
-    ===================================================== */
 
     utterance.onstart = () => {
 
       setIsSpeaking(true);
 
-    };
+      onStart?.();
 
-    /* =====================================================
-       Speech Finished
-    ===================================================== */
+    };
 
     utterance.onend = () => {
 
       setIsSpeaking(false);
 
+      onEnd?.();
+
     };
 
-    /* =====================================================
-       Speech Error
-    ===================================================== */
-
-    utterance.onerror = (
-      error
-    ) => {
-
-      console.error(
-        "Text-to-speech error:",
-        error
-      );
+    utterance.onerror = () => {
 
       setIsSpeaking(false);
 
+      onEnd?.();
+
     };
 
-    /* Speak */
+    utteranceRef.current =
+      utterance;
 
     window.speechSynthesis.speak(
       utterance
     );
-
   };
 
-  /* =======================================================
-     Automatically Speak New Question
-  ======================================================= */
-
+  /*
+   * Automatically speak when
+   * the question changes.
+   */
   useEffect(() => {
 
-    if (!autoSpeak) {
+    if (!text.trim()) {
       return;
     }
 
     const timer =
       window.setTimeout(() => {
 
-        speakQuestion();
+        speak();
 
       }, 500);
 
@@ -120,12 +100,12 @@ function TextToSpeechAI({
 
     };
 
-  }, [question, autoSpeak]);
+  }, [text]);
 
-  /* =======================================================
-     Cleanup
-  ======================================================= */
-
+  /*
+   * Cleanup when component
+   * is removed.
+   */
   useEffect(() => {
 
     return () => {
@@ -136,62 +116,19 @@ function TextToSpeechAI({
 
   }, []);
 
-  /* =======================================================
-     UI
-  ======================================================= */
-
   return (
 
-    <div className="ai-speech-controls">
-
-      <div className="ai-speech-status">
-
-        <span>
-          {isSpeaking
-            ? "🔊"
-            : "🔈"}
-        </span>
-
-        <span>
-
-          {isSpeaking
-            ? "AI interviewer speaking..."
-            : "AI interviewer"}
-
-        </span>
-
-      </div>
-
-      {/* Audio animation */}
-
-      {isSpeaking && (
-
-        <div className="ai-speaking-bars">
-
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-
-        </div>
-
-      )}
-
-      {/* Speak Again */}
+    <div className="ai-audio-status">
 
       <button
         type="button"
-        onClick={speakQuestion}
+        onClick={speak}
         disabled={isSpeaking}
-        className="ai-speak-again"
       >
 
         {isSpeaking
-          ? "Speaking..."
-          : "🔊 Speak Question"}
+          ? "🔊 Speaking..."
+          : "🔊 Hear Question"}
 
       </button>
 

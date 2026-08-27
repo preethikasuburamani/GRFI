@@ -333,3 +333,51 @@
     flex-direction: column;
   }
 }
+/* =========================================================
+   CV Processing
+========================================================= */
+
+.cv-processing {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: #f5f7fa;
+  border: 1px solid #e1e5ea;
+}
+
+.cv-processing p {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* =========================================================
+   CV Success
+========================================================= */
+
+.cv-success {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: #f1faf4;
+  border: 1px solid #b7dfc2;
+  color: #217a3b;
+  font-size: 14px;
+}
+
+/* =========================================================
+   CV Error
+========================================================= */
+
+.cv-error {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: #fff1f1;
+  border: 1px solid #f0b8b8;
+  color: #b42318;
+  font-size: 14px;
+  line-height: 1.5;
+}
