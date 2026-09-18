@@ -1,3 +1,4 @@
+
 import {
   useEffect,
   useRef,
@@ -22,32 +23,207 @@ interface InterviewQuestion {
   question: string;
 }
 
-interface OpenRouterResponse {
-  choices?: {
-    message?: {
-      content?: string;
+interface GeminiResponse {
+  candidates?: {
+    content?: {
+      parts?: {
+        text?: string;
+      }[];
     };
   }[];
 }
 
+interface InterviewEvaluation {
+  score: number;
+  strengths: string[];
+  improvements: string[];
+  betterAnswer: string;
+}
+
+interface InterviewAnswer {
+  questionId: number;
+  question: string;
+  answer: string;
+  evaluation: InterviewEvaluation;
+}
+
 /* =========================================================
-   OpenRouter Configuration
+   Gemini Configuration
 ========================================================= */
 
-const OPENROUTER_API_URL =
-  "https://openrouter.ai/api/v1/chat/completions";
+const GEMINI_MODEL =
+  import.meta.env.VITE_GEMINI_MODEL ||
+  "gemini-2.5-flash";
 
-const OPENROUTER_MODEL =
-  "openai/gpt-5.2";
+const GEMINI_API_KEY =
+  import.meta.env.VITE_GEMINI_API_KEY;
 
 /*
- * Keep the output reasonably small.
+ * Question generation needs enough tokens for
+ * multiple complete questions.
  *
- * 900 tokens is enough for the JSON containing
- * interview questions and is less expensive than
- * requesting 2000 tokens.
+ * 900 was too small in your previous version.
  */
-const MAX_OUTPUT_TOKENS = 900;
+const QUESTION_MAX_OUTPUT_TOKENS = 1800;
+
+/*
+ * Evaluation responses are much smaller.
+ */
+const EVALUATION_MAX_OUTPUT_TOKENS = 800;
+
+/* =========================================================
+   Gemini API Helper
+========================================================= */
+
+async function callGemini(
+  systemPrompt: string,
+  userPrompt: string,
+  maxOutputTokens: number
+): Promise<string> {
+
+  if (!GEMINI_API_KEY) {
+    throw new Error(
+      "Gemini API key is missing. Please check your .env.local file."
+    );
+  }
+
+  const GEMINI_API_URL =
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+
+  const response = await fetch(
+    GEMINI_API_URL,
+    {
+      method: "POST",
+
+      headers: {
+        "Content-Type": "application/json",
+      },
+
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [
+            {
+              text: systemPrompt,
+            },
+          ],
+        },
+
+        contents: [
+          {
+            role: "user",
+
+            parts: [
+              {
+                text: userPrompt,
+              },
+            ],
+          },
+        ],
+
+        generationConfig: {
+          temperature: 0.4,
+
+          maxOutputTokens:
+            maxOutputTokens,
+
+          responseMimeType:
+            "application/json",
+        },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+
+    const errorText =
+      await response.text();
+
+    console.error(
+      "Gemini API error:",
+      errorText
+    );
+
+    if (response.status === 429) {
+      throw new Error(
+        "Gemini rate limit reached. Please wait a moment and try again."
+      );
+    }
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+      throw new Error(
+        "Gemini API key is invalid or not authorised."
+      );
+    }
+
+    throw new Error(
+      `Gemini request failed (${response.status}).`
+    );
+  }
+
+  const data =
+    (await response.json()) as GeminiResponse;
+
+  const content =
+    data.candidates?.[0]
+      ?.content
+      ?.parts
+      ?.map((part) => part.text || "")
+      .join("")
+      .trim();
+
+  if (!content) {
+    console.error(
+      "Gemini returned:",
+      data
+    );
+
+    throw new Error(
+      "Gemini returned an empty response."
+    );
+  }
+
+  return content;
+}
+
+/* =========================================================
+   Clean Gemini JSON
+========================================================= */
+
+function cleanGeminiJson(
+  content: string
+): string {
+
+  let cleaned =
+    content.trim();
+
+  /*
+   * Remove markdown code fences if Gemini
+   * adds them despite being asked for JSON.
+   */
+
+  cleaned =
+    cleaned.replace(
+      /^```json\s*/i,
+      ""
+    );
+
+  cleaned =
+    cleaned.replace(
+      /^```\s*/i,
+      ""
+    );
+
+  cleaned =
+    cleaned.replace(
+      /\s*```$/i,
+      ""
+    );
+
+  return cleaned.trim();
+}
 
 /* =========================================================
    AI Interview Page
@@ -81,13 +257,6 @@ function AIInterviewPage() {
      Question Generation Protection
   ======================================================= */
 
-  /*
-   * React StrictMode can run useEffect twice during
-   * development.
-   *
-   * This ref prevents two OpenRouter requests from
-   * being created for the same interview page.
-   */
   const questionGenerationStarted =
     useRef(false);
 
@@ -144,7 +313,33 @@ function AIInterviewPage() {
   ] = useState(false);
 
   /* =======================================================
-     Interview State
+     6C - Evaluation
+  ======================================================= */
+
+  const [
+    isEvaluating,
+    setIsEvaluating,
+  ] = useState(false);
+
+  const [
+    evaluationError,
+    setEvaluationError,
+  ] = useState("");
+
+  const [
+    currentEvaluation,
+    setCurrentEvaluation,
+  ] = useState<InterviewEvaluation | null>(
+    null
+  );
+
+  const [
+    interviewAnswers,
+    setInterviewAnswers,
+  ] = useState<InterviewAnswer[]>([]);
+
+  /* =======================================================
+     Interview Complete
   ======================================================= */
 
   const [
@@ -184,8 +379,9 @@ function AIInterviewPage() {
 
           /*
            * Component may have been removed while
-           * browser permission dialog was open.
+           * permission dialog was open.
            */
+
           if (!mounted) {
 
             stream
@@ -222,9 +418,7 @@ function AIInterviewPage() {
           );
 
           setIsCameraOn(false);
-
         }
-
       };
 
     startMedia();
@@ -246,7 +440,6 @@ function AIInterviewPage() {
 
         mediaStreamRef.current =
           null;
-
       }
 
     };
@@ -254,20 +447,23 @@ function AIInterviewPage() {
   }, []);
 
   /* =========================================================
-     Generate Questions
+     Generate Questions with Gemini
   ========================================================= */
 
   useEffect(() => {
 
     /*
-     * Prevent duplicate API requests.
+     * Prevent duplicate Gemini requests.
+     *
+     * React StrictMode can run effects twice
+     * during development.
      */
+
     if (
       questionGenerationStarted.current
     ) {
 
       return;
-
     }
 
     questionGenerationStarted.current =
@@ -279,6 +475,7 @@ function AIInterviewPage() {
         try {
 
           setIsGeneratingQuestions(true);
+
           setQuestionError("");
 
           /* ===============================================
@@ -326,12 +523,11 @@ function AIInterviewPage() {
              Validate CV
           =============================================== */
 
-          if (!cvText) {
+          if (!cvText?.trim()) {
 
             throw new Error(
               "CV information is missing. Please return to the setup page and upload your CV again."
             );
-
           }
 
           /* ===============================================
@@ -350,23 +546,6 @@ function AIInterviewPage() {
             throw new Error(
               "No job description or target role was provided."
             );
-
-          }
-
-          /* ===============================================
-             API Key
-          =============================================== */
-
-          const apiKey =
-            import.meta.env
-              .VITE_OPENROUTER_API_KEY;
-
-          if (!apiKey) {
-
-            throw new Error(
-              "OpenRouter API key is missing. Please check your .env.local file."
-            );
-
           }
 
           /* ===============================================
@@ -377,23 +556,34 @@ function AIInterviewPage() {
 You are an expert interviewer for GRFI
 (Get Ready For Interview).
 
-Create realistic interview questions based on
-the candidate's CV and target job.
+Generate personalised interview questions
+for the candidate.
+
+Use:
+
+- The candidate's actual CV
+- Their technical skills
+- Their projects
+- Their experience
+- The target job or role
+- Interview type
+- Difficulty
 
 Rules:
 
-1. Use information from the candidate's CV.
-2. Make questions relevant to the target job.
-3. Never invent experience, skills or projects.
+1. Never invent experience, skills or projects.
+2. Make questions relevant to the target role.
+3. Make questions relevant to the candidate's CV.
 4. Follow the requested interview type.
 5. Follow the requested difficulty.
 6. Avoid duplicate questions.
 7. Make questions clear and conversational.
-8. Return ONLY valid JSON.
-9. Do not use markdown.
-10. Do not add explanations.
+8. Prefer practical and scenario-based questions where appropriate.
+9. Return ONLY valid JSON.
+10. Do not use markdown.
+11. Do not add explanations.
 
-Return exactly:
+Return exactly this structure:
 
 {
   "questions": [
@@ -403,6 +593,8 @@ Return exactly:
     }
   ]
 }
+
+Generate exactly the requested number of questions.
 `;
 
           const userPrompt = `
@@ -410,162 +602,48 @@ Candidate CV:
 
 ${cvText}
 
-Target job or role:
+
+Target Job or Role:
 
 ${targetJob}
 
-Interview type:
+
+Interview Type:
 
 ${interviewType}
+
 
 Difficulty:
 
 ${difficulty}
 
-Number of questions:
+
+Number of Questions:
 
 ${questionCount}
+
 
 Generate exactly ${questionCount} personalised interview questions.
 `;
 
-          /* ===============================================
-             OpenRouter Request
-          =============================================== */
-
           console.log(
-            "Generating interview questions..."
+            "Generating interview questions with Gemini..."
           );
 
-          const response =
-            await fetch(
-              OPENROUTER_API_URL,
-              {
-                method: "POST",
-
-                headers: {
-                  "Content-Type":
-                    "application/json",
-
-                  Authorization:
-                    `Bearer ${apiKey}`,
-
-                  "HTTP-Referer":
-                    window.location.origin,
-
-                  "X-Title":
-                    "GRFI - Get Ready For Interview",
-                },
-
-                body: JSON.stringify({
-
-                  model:
-                    OPENROUTER_MODEL,
-
-                  messages: [
-
-                    {
-                      role: "system",
-                      content:
-                        systemPrompt,
-                    },
-
-                    {
-                      role: "user",
-                      content:
-                        userPrompt,
-                    },
-
-                  ],
-
-                  temperature: 0.5,
-
-                  /*
-                   * Reduced from 2000.
-                   */
-                  max_tokens:
-                    MAX_OUTPUT_TOKENS,
-
-                }),
-
-              }
-            );
-
           /* ===============================================
-             API Error
+             Gemini Request
           =============================================== */
-
-          if (!response.ok) {
-
-            const errorText =
-              await response.text();
-
-            console.error(
-              "OpenRouter error:",
-              errorText
-            );
-
-            /*
-             * Specific credit error.
-             */
-            if (
-              response.status === 402
-            ) {
-
-              throw new Error(
-                "OpenRouter does not have enough available credits for this request. Please wait for any active requests to finish or add OpenRouter credits."
-              );
-
-            }
-
-            if (
-              response.status === 401
-            ) {
-
-              throw new Error(
-                "OpenRouter API key is invalid or not authorised."
-              );
-
-            }
-
-            if (
-              response.status === 429
-            ) {
-
-              throw new Error(
-                "OpenRouter rate limit reached. Please wait a moment and try again."
-              );
-
-            }
-
-            throw new Error(
-              `OpenRouter request failed (${response.status}).`
-            );
-
-          }
-
-          /* ===============================================
-             Read Response
-          =============================================== */
-
-          const data =
-            (await response.json()) as OpenRouterResponse;
 
           const content =
-            data.choices?.[0]
-              ?.message
-              ?.content;
-
-          if (!content) {
-
-            throw new Error(
-              "OpenRouter returned an empty response."
+            await callGemini(
+              systemPrompt,
+              userPrompt,
+              QUESTION_MAX_OUTPUT_TOKENS
             );
 
-          }
-
           console.log(
-            "OpenRouter response received."
+            "Gemini question response:",
+            content
           );
 
           /* ===============================================
@@ -573,20 +651,9 @@ Generate exactly ${questionCount} personalised interview questions.
           =============================================== */
 
           const cleanedContent =
-            content
-              .replace(
-                /^```json\s*/i,
-                ""
-              )
-              .replace(
-                /^```\s*/i,
-                ""
-              )
-              .replace(
-                /\s*```$/i,
-                ""
-              )
-              .trim();
+            cleanGeminiJson(
+              content
+            );
 
           /* ===============================================
              Parse JSON
@@ -617,10 +684,14 @@ Generate exactly ${questionCount} personalised interview questions.
               cleanedContent
             );
 
-            throw new Error(
-              "The AI returned an invalid question format. Please try starting the interview again."
-            );
+            /*
+             * This usually means Gemini stopped
+             * before completing the JSON response.
+             */
 
+            throw new Error(
+              "Gemini returned an incomplete question response. Please try starting the interview again."
+            );
           }
 
           /* ===============================================
@@ -635,17 +706,15 @@ Generate exactly ${questionCount} personalised interview questions.
           ) {
 
             throw new Error(
-              "AI returned an invalid question format."
+              "Gemini returned an invalid question format."
             );
-
           }
 
           const validQuestions =
             parsed.questions
               .filter(
-                (
-                  item
-                ) =>
+                (item) =>
+                  item &&
                   typeof item.question ===
                     "string" &&
                   item.question.trim()
@@ -655,13 +724,11 @@ Generate exactly ${questionCount} personalised interview questions.
                   item,
                   index
                 ) => ({
-
                   id:
                     index + 1,
 
                   question:
                     item.question.trim(),
-
                 })
               );
 
@@ -672,7 +739,22 @@ Generate exactly ${questionCount} personalised interview questions.
             throw new Error(
               "No valid interview questions were generated."
             );
+          }
 
+          /*
+           * If Gemini returns fewer questions than requested,
+           * tell the user rather than silently pretending
+           * the interview has the requested number.
+           */
+
+          if (
+            validQuestions.length <
+            questionCount
+          ) {
+
+            console.warn(
+              `Gemini generated ${validQuestions.length} questions instead of ${questionCount}.`
+            );
           }
 
           /* ===============================================
@@ -684,6 +766,17 @@ Generate exactly ${questionCount} personalised interview questions.
             JSON.stringify(
               validQuestions
             )
+          );
+
+          /*
+           * Clear any previous interview evaluations.
+           *
+           * This prevents an old interview's answers
+           * appearing in the new interview.
+           */
+
+          sessionStorage.removeItem(
+            "grfiInterviewAnswers"
           );
 
           setQuestions(
@@ -712,9 +805,7 @@ Generate exactly ${questionCount} personalised interview questions.
           setIsGeneratingQuestions(
             false
           );
-
         }
-
       };
 
     generateQuestions();
@@ -789,108 +880,12 @@ Generate exactly ${questionCount} personalised interview questions.
     };
 
   /* =========================================================
-     Submit Answer
+     Stop Media
   ========================================================= */
 
-  const handleSubmitAnswer =
+  const stopMedia =
     () => {
 
-      if (
-        !answer.trim()
-      ) {
-
-        return;
-
-      }
-
-      console.log(
-        "Candidate answer:",
-        answer
-      );
-
-      console.log(
-        "Question:",
-        currentQuestion?.question
-      );
-
-      /* ===============================================
-         Last Question
-      =============================================== */
-
-      if (
-        currentQuestionIndex >=
-        questions.length - 1
-      ) {
-
-        setIsInterviewComplete(
-          true
-        );
-
-        /*
-         * Stop camera and microphone.
-         */
-        if (
-          mediaStreamRef.current
-        ) {
-
-          mediaStreamRef.current
-            .getTracks()
-            .forEach(
-              (track) =>
-                track.stop()
-            );
-
-          mediaStreamRef.current =
-            null;
-
-          setIsCameraOn(
-            false
-          );
-
-        }
-
-        /*
-         * Stop AI speech.
-         */
-        window.speechSynthesis.cancel();
-
-        return;
-
-      }
-
-      /* ===============================================
-         Next Question
-      =============================================== */
-
-      setCurrentQuestionIndex(
-        (
-          previous
-        ) =>
-          previous + 1
-      );
-
-      setAnswer("");
-
-      setAnswerMode(
-        "type"
-      );
-
-      setIsListening(
-        false
-      );
-
-    };
-
-  /* =========================================================
-     End Interview
-  ========================================================= */
-
-  const handleEndInterview =
-    () => {
-
-      /*
-       * Stop camera and microphone.
-       */
       if (
         mediaStreamRef.current
       ) {
@@ -904,22 +899,474 @@ Generate exactly ${questionCount} personalised interview questions.
 
         mediaStreamRef.current =
           null;
-
       }
-
-      /*
-       * Stop AI speech.
-       */
-      window.speechSynthesis.cancel();
 
       setIsCameraOn(
         false
       );
 
+      window.speechSynthesis.cancel();
+    };
+
+  /* =========================================================
+     6C - Evaluate Candidate Answer
+  ========================================================= */
+
+  const evaluateAnswer =
+    async () => {
+
+      if (
+        !currentQuestion
+      ) {
+
+        return;
+      }
+
+      const trimmedAnswer =
+        answer.trim();
+
+      if (
+        !trimmedAnswer
+      ) {
+
+        return;
+      }
+
+      try {
+
+        setIsEvaluating(
+          true
+        );
+
+        setEvaluationError("");
+
+        setCurrentEvaluation(
+          null
+        );
+
+        const interviewType =
+          sessionStorage.getItem(
+            "grfiInterviewType"
+          ) || "mixed";
+
+        const difficulty =
+          sessionStorage.getItem(
+            "grfiDifficulty"
+          ) || "medium";
+
+        const jobInputType =
+          sessionStorage.getItem(
+            "grfiJobInputType"
+          );
+
+        const role =
+          sessionStorage.getItem(
+            "grfiRole"
+          ) || "";
+
+        const jobDescription =
+          sessionStorage.getItem(
+            "grfiJobDescription"
+          ) || "";
+
+        const targetRole =
+          jobInputType === "role"
+            ? role
+            : "the role described in the job description";
+
+        /* ===============================================
+           Evaluation System Prompt
+        =============================================== */
+
+        const systemPrompt = `
+You are an experienced professional interviewer
+evaluating a candidate's answer.
+
+Evaluate the candidate fairly.
+
+Consider:
+
+- Relevance
+- Technical accuracy
+- Understanding
+- Depth
+- Practical experience
+- Problem solving
+- Communication
+- Completeness
+
+Important:
+
+1. Do not invent facts about the candidate.
+2. Do not give credit for information that was not provided.
+3. Do not penalise grammar heavily.
+4. Do not evaluate accent.
+5. Focus on the content of the answer.
+6. Give a realistic score from 1 to 10.
+7. Be specific and constructive.
+8. Return ONLY valid JSON.
+9. Do not use markdown.
+
+Return exactly:
+
+{
+  "score": 8,
+  "strengths": [
+    "Strength 1",
+    "Strength 2"
+  ],
+  "improvements": [
+    "Improvement 1",
+    "Improvement 2"
+  ],
+  "betterAnswer": "Example of a stronger answer."
+}
+
+The betterAnswer should be concise,
+realistic and relevant to the question.
+`;
+
+        /* ===============================================
+           Evaluation User Prompt
+        =============================================== */
+
+        const userPrompt = `
+Target Role:
+
+${targetRole}
+
+
+Interview Type:
+
+${interviewType}
+
+
+Difficulty:
+
+${difficulty}
+
+
+Interview Question:
+
+${currentQuestion.question}
+
+
+Candidate Answer:
+
+${trimmedAnswer}
+
+
+Evaluate this candidate answer.
+`;
+
+        console.log(
+          "Evaluating candidate answer with Gemini..."
+        );
+
+        /* ===============================================
+           Gemini Evaluation Request
+        =============================================== */
+
+        const content =
+          await callGemini(
+            systemPrompt,
+            userPrompt,
+            EVALUATION_MAX_OUTPUT_TOKENS
+          );
+
+        console.log(
+          "Gemini evaluation response:",
+          content
+        );
+
+        /* ===============================================
+           Clean JSON
+        =============================================== */
+
+        const cleanedContent =
+          cleanGeminiJson(
+            content
+          );
+
+        /* ===============================================
+           Parse Evaluation
+        =============================================== */
+
+        let evaluation:
+          InterviewEvaluation;
+
+        try {
+
+          evaluation =
+            JSON.parse(
+              cleanedContent
+            ) as InterviewEvaluation;
+
+        } catch (error) {
+
+          console.error(
+            "Evaluation JSON parsing error:",
+            error
+          );
+
+          console.error(
+            "Gemini returned:",
+            cleanedContent
+          );
+
+          throw new Error(
+            "Gemini returned an incomplete evaluation. Please try submitting your answer again."
+          );
+        }
+
+        /* ===============================================
+           Validate Evaluation
+        =============================================== */
+
+        if (
+          typeof evaluation.score !==
+            "number" ||
+          !Array.isArray(
+            evaluation.strengths
+          ) ||
+          !Array.isArray(
+            evaluation.improvements
+          ) ||
+          typeof evaluation.betterAnswer !==
+            "string"
+        ) {
+
+          throw new Error(
+            "Gemini returned an invalid evaluation format."
+          );
+        }
+
+        /*
+         * Keep score safely between 1 and 10.
+         */
+
+        const safeScore =
+          Math.min(
+            10,
+            Math.max(
+              1,
+              Math.round(
+                evaluation.score
+              )
+            )
+          );
+
+        const finalEvaluation:
+          InterviewEvaluation = {
+            score:
+              safeScore,
+
+            strengths:
+              evaluation.strengths
+                .filter(
+                  (
+                    item
+                  ) =>
+                    typeof item ===
+                    "string"
+                )
+                .map(
+                  (
+                    item
+                  ) =>
+                    item.trim()
+                )
+                .filter(
+                  (
+                    item
+                  ) =>
+                    item.length > 0
+                ),
+
+            improvements:
+              evaluation.improvements
+                .filter(
+                  (
+                    item
+                  ) =>
+                    typeof item ===
+                    "string"
+                )
+                .map(
+                  (
+                    item
+                  ) =>
+                    item.trim()
+                )
+                .filter(
+                  (
+                    item
+                  ) =>
+                    item.length > 0
+                ),
+
+            betterAnswer:
+              evaluation.betterAnswer.trim(),
+          };
+
+        /* ===============================================
+           Store Current Evaluation
+        =============================================== */
+
+        setCurrentEvaluation(
+          finalEvaluation
+        );
+
+        /* ===============================================
+           Store Complete Answer Record
+        =============================================== */
+
+        const answerRecord:
+          InterviewAnswer = {
+            questionId:
+              currentQuestion.id,
+
+            question:
+              currentQuestion.question,
+
+            answer:
+              trimmedAnswer,
+
+            evaluation:
+              finalEvaluation,
+          };
+
+        setInterviewAnswers(
+          (previousAnswers) => {
+
+            /*
+             * Prevent duplicate records if
+             * the user somehow submits twice.
+             */
+
+            const filteredAnswers =
+              previousAnswers.filter(
+                (item) =>
+                  item.questionId !==
+                  currentQuestion.id
+              );
+
+            const updatedAnswers = [
+              ...filteredAnswers,
+              answerRecord,
+            ];
+
+            sessionStorage.setItem(
+              "grfiInterviewAnswers",
+              JSON.stringify(
+                updatedAnswers
+              )
+            );
+
+            return updatedAnswers;
+          }
+        );
+
+      } catch (error) {
+
+        console.error(
+          "Answer evaluation error:",
+          error
+        );
+
+        setEvaluationError(
+          error instanceof Error
+            ? error.message
+            : "Unable to evaluate your answer."
+        );
+
+      } finally {
+
+        setIsEvaluating(
+          false
+        );
+      }
+    };
+
+  /* =========================================================
+     Next Question
+  ========================================================= */
+
+  const handleNextQuestion =
+    () => {
+
+      if (
+        !currentEvaluation
+      ) {
+
+        return;
+      }
+
+      const isLastQuestion =
+        currentQuestionIndex >=
+        questions.length - 1;
+
+      /* ===============================================
+         Last Question
+      =============================================== */
+
+      if (
+        isLastQuestion
+      ) {
+
+        setIsInterviewComplete(
+          true
+        );
+
+        stopMedia();
+
+        console.log(
+          "Interview completed:",
+          interviewAnswers
+        );
+
+        return;
+      }
+
+      /* ===============================================
+         Next Question
+      =============================================== */
+
+      setCurrentQuestionIndex(
+        (previous) =>
+          previous + 1
+      );
+
+      setAnswer("");
+
+      setAnswerMode(
+        "type"
+      );
+
+      setIsListening(
+        false
+      );
+
+      setCurrentEvaluation(
+        null
+      );
+
+      setEvaluationError("");
+
+    };
+
+  /* =========================================================
+     End Interview
+  ========================================================= */
+
+  const handleEndInterview =
+    () => {
+
+      stopMedia();
+
       navigate(
         "/"
       );
-
     };
 
   /* =========================================================
@@ -954,7 +1401,6 @@ Generate exactly ${questionCount} personalised interview questions.
       </main>
 
     );
-
   }
 
   /* =========================================================
@@ -999,7 +1445,6 @@ Generate exactly ${questionCount} personalised interview questions.
       </main>
 
     );
-
   }
 
   /* =========================================================
@@ -1045,7 +1490,6 @@ Generate exactly ${questionCount} personalised interview questions.
       </main>
 
     );
-
   }
 
   /* =========================================================
@@ -1164,9 +1608,7 @@ Generate exactly ${questionCount} personalised interview questions.
 
           </div>
 
-          {/* =================================================
-              Text To Speech
-          ================================================= */}
+          {/* Text To Speech */}
 
           {currentQuestion && (
 
@@ -1271,57 +1713,64 @@ Generate exactly ${questionCount} personalised interview questions.
                 Answer Modes
             ================================================= */}
 
-            <div className="answer-mode">
+            {!currentEvaluation && (
 
-              <button
-                type="button"
-                className={
-                  answerMode === "type"
-                    ? "answer-mode__button active"
-                    : "answer-mode__button"
-                }
-                onClick={() => {
+              <div className="answer-mode">
 
-                  setAnswerMode(
-                    "type"
-                  );
+                <button
+                  type="button"
+                  className={
+                    answerMode === "type"
+                      ? "answer-mode__button active"
+                      : "answer-mode__button"
+                  }
+                  onClick={() => {
 
-                  setIsListening(
-                    false
-                  );
+                    setAnswerMode(
+                      "type"
+                    );
 
-                }}
-              >
+                    setIsListening(
+                      false
+                    );
 
-                ⌨️ Type
+                  }}
+                  disabled={
+                    isEvaluating
+                  }
+                >
+                  ⌨️ Type
+                </button>
 
-              </button>
+                <button
+                  type="button"
+                  className={
+                    answerMode === "speak"
+                      ? "answer-mode__button active"
+                      : "answer-mode__button"
+                  }
+                  onClick={() =>
+                    setAnswerMode(
+                      "speak"
+                    )
+                  }
+                  disabled={
+                    isEvaluating
+                  }
+                >
+                  🎙️ Speak
+                </button>
 
-              <button
-                type="button"
-                className={
-                  answerMode === "speak"
-                    ? "answer-mode__button active"
-                    : "answer-mode__button"
-                }
-                onClick={() =>
-                  setAnswerMode(
-                    "speak"
-                  )
-                }
-              >
+              </div>
 
-                🎙️ Speak
-
-              </button>
-
-            </div>
+            )}
 
             {/* =================================================
                 Type Answer
             ================================================= */}
 
-            {answerMode === "type" && (
+            {answerMode === "type" &&
+              !currentEvaluation && (
 
               <div className="type-answer">
 
@@ -1338,6 +1787,9 @@ Generate exactly ${questionCount} personalised interview questions.
                   }
                   placeholder="Type your answer here..."
                   rows={6}
+                  disabled={
+                    isEvaluating
+                  }
                 />
 
                 <div className="answer-meta">
@@ -1358,7 +1810,8 @@ Generate exactly ${questionCount} personalised interview questions.
                 Speak Answer
             ================================================= */}
 
-            {answerMode === "speak" && (
+            {answerMode === "speak" &&
+              !currentEvaluation && (
 
               <div className="speak-answer">
 
@@ -1389,9 +1842,7 @@ Generate exactly ${questionCount} personalised interview questions.
 
                 </p>
 
-                {/* =============================================
-                    Speech To Text
-                ============================================= */}
+                {/* Speech To Text */}
 
                 <SpeechToText
                   onTranscript={
@@ -1417,30 +1868,209 @@ Generate exactly ${questionCount} personalised interview questions.
             )}
 
             {/* =================================================
-                Submit
+                Evaluation Error
             ================================================= */}
 
-            <button
-              type="button"
-              className="submit-answer"
-              disabled={
-                !answer.trim()
-              }
-              onClick={
-                handleSubmitAnswer
-              }
-            >
+            {evaluationError && (
 
-              {currentQuestionIndex ===
+              <div className="evaluation-error">
+
+                {evaluationError}
+
+              </div>
+
+            )}
+
+            {/* =================================================
+                Evaluation Loading
+            ================================================= */}
+
+            {isEvaluating && (
+
+              <div className="evaluation-loading">
+
+                <div>
+                  AI
+                </div>
+
+                <p>
+                  Evaluating your answer...
+                </p>
+
+              </div>
+
+            )}
+
+            {/* =================================================
+                6C - Evaluation Result
+            ================================================= */}
+
+            {currentEvaluation && (
+
+              <div className="evaluation-result">
+
+                {/* Evaluation Header */}
+
+                <div className="evaluation-result__header">
+
+                  <div>
+
+                    <span>
+                      AI Evaluation
+                    </span>
+
+                    <h2>
+                      Your answer has been evaluated
+                    </h2>
+
+                  </div>
+
+                  <div className="evaluation-score">
+
+                    <strong>
+                      {currentEvaluation.score}
+                    </strong>
+
+                    <span>
+                      /10
+                    </span>
+
+                  </div>
+
+                </div>
+
+                {/* Strengths */}
+
+                <div className="evaluation-section">
+
+                  <h3>
+                    What you did well
+                  </h3>
+
+                  <ul>
+
+                    {currentEvaluation.strengths.map(
+                      (
+                        strength,
+                        index
+                      ) => (
+
+                        <li
+                          key={index}
+                        >
+                          {strength}
+                        </li>
+
+                      )
+                    )}
+
+                  </ul>
+
+                </div>
+
+                {/* Improvements */}
+
+                <div className="evaluation-section">
+
+                  <h3>
+                    What you can improve
+                  </h3>
+
+                  <ul>
+
+                    {currentEvaluation.improvements.map(
+                      (
+                        improvement,
+                        index
+                      ) => (
+
+                        <li
+                          key={index}
+                        >
+                          {improvement}
+                        </li>
+
+                      )
+                    )}
+
+                  </ul>
+
+                </div>
+
+                {/* Better Answer */}
+
+                <div className="evaluation-section">
+
+                  <h3>
+                    Example of a stronger answer
+                  </h3>
+
+                  <p>
+                    {currentEvaluation.betterAnswer}
+                  </p>
+
+                </div>
+
+              </div>
+
+            )}
+
+            {/* =================================================
+                Submit Answer
+            ================================================= */}
+
+            {!currentEvaluation && (
+
+              <button
+                type="button"
+                className="submit-answer"
+                disabled={
+                  !answer.trim() ||
+                  isEvaluating
+                }
+                onClick={
+                  evaluateAnswer
+                }
+              >
+
+                {isEvaluating
+                  ? "Evaluating..."
+                  : "Submit Answer"}
+
+                <span>
+                  →
+                </span>
+
+              </button>
+
+            )}
+
+            {/* =================================================
+                Next Question
+            ================================================= */}
+
+            {currentEvaluation && (
+
+              <button
+                type="button"
+                className="submit-answer"
+                onClick={
+                  handleNextQuestion
+                }
+              >
+
+                {currentQuestionIndex ===
                 questions.length - 1
-                ? "Finish Interview"
-                : "Submit Answer"}
+                  ? "Finish Interview"
+                  : "Next Question"}
 
-              <span>
-                →
-              </span>
+                <span>
+                  →
+                </span>
 
-            </button>
+              </button>
+
+            )}
 
           </div>
 
@@ -1451,7 +2081,6 @@ Generate exactly ${questionCount} personalised interview questions.
     </main>
 
   );
-
 }
 
 export default AIInterviewPage;

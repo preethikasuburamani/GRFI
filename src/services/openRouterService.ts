@@ -1,381 +1,325 @@
-/* =========================================================
-   OpenRouter Service
-========================================================= */
+// =========================================================
+// GEMINI INTERVIEW QUESTION SERVICE
+// =========================================================
+
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+
+const GEMINI_MODEL =
+  import.meta.env.VITE_GEMINI_MODEL || "gemini-3.6-flash";
+
+const MAX_OUTPUT_TOKENS = 3000;
+
+// =========================================================
+// TYPES
+// =========================================================
+
+export interface InterviewQuestion {
+  id: number;
+  question: string;
+}
 
 interface GenerateInterviewQuestionsParams {
   cvText: string;
   jobDescription?: string;
   role?: string;
+  interviewType?: string;
+  difficulty?: string;
+  questionCount?: number;
 }
 
-interface GeneratedQuestionsResponse {
-  questions: string[];
+interface GeminiResponse {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{
+        text?: string;
+      }>;
+    };
+    finishReason?: string;
+  }>;
+  error?: {
+    message?: string;
+  };
 }
 
-/* =========================================================
-   OpenRouter Configuration
-========================================================= */
+// =========================================================
+// GEMINI API CALL
+// =========================================================
 
-const OPENROUTER_API_URL =
-  "https://openrouter.ai/api/v1/chat/completions";
+async function callGemini(
+  systemPrompt: string,
+  userPrompt: string
+): Promise<string> {
+  if (!GEMINI_API_KEY) {
+    throw new Error(
+      "Gemini API key is missing. Please check your .env.local file."
+    );
+  }
 
-const OPENROUTER_API_KEY =
-  import.meta.env.VITE_OPENROUTER_API_KEY;
+  const apiUrl =
+    `https://generativelanguage.googleapis.com/v1beta/models/` +
+    `${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
-const OPENROUTER_MODEL =
-  import.meta.env.VITE_OPENROUTER_MODEL ||
-  "openai/gpt-4o-mini";
+  const response = await fetch(apiUrl, {
+    method: "POST",
 
-/* =========================================================
-   Generate Interview Questions
-========================================================= */
+    headers: {
+      "Content-Type": "application/json",
+    },
+
+    body: JSON.stringify({
+      systemInstruction: {
+        parts: [
+          {
+            text: systemPrompt,
+          },
+        ],
+      },
+
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: userPrompt,
+            },
+          ],
+        },
+      ],
+
+      generationConfig: {
+        temperature: 0.4,
+        maxOutputTokens: MAX_OUTPUT_TOKENS,
+        responseMimeType: "application/json",
+      },
+    }),
+  });
+
+  const data: GeminiResponse = await response.json();
+
+  if (!response.ok) {
+    console.error("Gemini API error:", data);
+
+    throw new Error(
+      data.error?.message ||
+        `Gemini API request failed with status ${response.status}`
+    );
+  }
+
+  const text = data.candidates?.[0]?.content?.parts
+    ?.map((part) => part.text || "")
+    .join("")
+    .trim();
+
+  if (!text) {
+    console.error("Gemini returned no text:", data);
+
+    throw new Error(
+      "Gemini returned an empty response. Please try again."
+    );
+  }
+
+  return text;
+}
+
+// =========================================================
+// JSON CLEANER
+// =========================================================
+
+function cleanJsonResponse(text: string): string {
+  let cleaned = text.trim();
+
+  // Remove markdown code fences if Gemini adds them
+  cleaned = cleaned.replace(/^```json\s*/i, "");
+  cleaned = cleaned.replace(/^```\s*/i, "");
+  cleaned = cleaned.replace(/\s*```$/i, "");
+
+  return cleaned.trim();
+}
+
+// =========================================================
+// GENERATE INTERVIEW QUESTIONS
+// =========================================================
 
 export async function generateInterviewQuestions({
   cvText,
-  jobDescription,
-  role,
-}: GenerateInterviewQuestionsParams): Promise<string[]> {
-
-  /* =======================================================
-     Validate API Key
-  ======================================================= */
-
-  if (!OPENROUTER_API_KEY) {
-
-    throw new Error(
-      "OpenRouter API key is missing. Please check your .env file."
-    );
-
-  }
-
-  /* =======================================================
-     Validate CV
-  ======================================================= */
-
+  jobDescription = "",
+  role = "",
+  interviewType = "mixed",
+  difficulty = "medium",
+  questionCount = 10,
+}: GenerateInterviewQuestionsParams): Promise<InterviewQuestion[]> {
   if (!cvText.trim()) {
-
-    throw new Error(
-      "CV information is required to generate interview questions."
-    );
-
+    throw new Error("CV content is required.");
   }
-
-  /* =======================================================
-     Determine Interview Context
-  ======================================================= */
-
-  const interviewRole =
-    role?.trim() ||
-    "the candidate's target role";
-
-  const jobDescriptionText =
-    jobDescription?.trim()
-      ? jobDescription
-      : "No job description was provided. Generate questions based on the selected role and the candidate's CV.";
-
-  /* =======================================================
-     AI Prompt
-  ======================================================= */
 
   const systemPrompt = `
-You are an experienced technical interviewer.
+You are GRFI, an AI interview coach.
 
-Your job is to generate realistic interview questions
-for a candidate based on their CV and the target job.
+Your job is to create realistic interview questions personalised to the candidate.
 
-The questions should feel like questions asked by a
-real human interviewer.
+Use:
+1. The candidate's CV
+2. The target job description or role
+3. Interview type
+4. Difficulty
+5. Requested number of questions
 
-Focus on:
+Questions should feel like questions asked by a real interviewer.
 
-- The candidate's actual experience
-- Their technical skills
-- Their projects
-- Their previous responsibilities
-- The technologies mentioned in the CV
-- The requirements of the job description
-- The selected target role
-- Practical and scenario-based questions
+Important rules:
 
-Avoid generic questions where possible.
+- Personalise questions using the candidate's actual CV.
+- Do not invent companies, projects, skills or experience.
+- If the CV mentions a project, you can ask about that project.
+- If the CV mentions a technology, you can ask about how they used it.
+- Include a mixture of questions when interview type is "mixed".
+- Avoid repetitive questions.
+- Questions should become progressively challenging where appropriate.
+- Keep questions concise and natural.
+- Do not provide answers.
+- Do not provide explanations.
+- Return ONLY valid JSON.
+`;
 
-Do not invent experience that is not present in the CV.
+  const userPrompt = `
+Create ${questionCount} interview questions.
 
-Return ONLY valid JSON.
+CANDIDATE CV:
+----------------
+${cvText}
+----------------
 
-The JSON must have exactly this structure:
+TARGET ROLE:
+${role || "Not specified"}
+
+JOB DESCRIPTION:
+----------------
+${jobDescription || "Not provided"}
+----------------
+
+INTERVIEW TYPE:
+${interviewType}
+
+DIFFICULTY:
+${difficulty}
+
+Return exactly this JSON structure:
 
 {
   "questions": [
-    "Question 1",
-    "Question 2",
-    "Question 3"
+    {
+      "id": 1,
+      "question": "Question text"
+    }
   ]
 }
 
-Generate 8 interview questions.
+Requirements:
+
+- Return exactly ${questionCount} questions.
+- IDs must start at 1 and increase sequentially.
+- Every question must be a string.
+- Do not include answers.
+- Do not include markdown.
+- Do not include extra fields.
+- Return valid JSON only.
 `;
-
-  /* =======================================================
-     User Prompt
-  ======================================================= */
-
-  const userPrompt = `
-Target Role:
-
-${interviewRole}
-
-
-Job Description:
-
-${jobDescriptionText}
-
-
-Candidate CV:
-
-${cvText}
-
-
-Generate interview questions that are specifically
-relevant to this candidate and this role.
-`;
-
-  /* =======================================================
-     API Request
-  ======================================================= */
-
-  const response =
-    await fetch(
-      OPENROUTER_API_URL,
-      {
-        method: "POST",
-
-        headers: {
-          "Content-Type":
-            "application/json",
-
-          Authorization:
-            `Bearer ${OPENROUTER_API_KEY}`,
-
-          "HTTP-Referer":
-            window.location.origin,
-
-          "X-Title":
-            "GRFI - Get Ready For Interview",
-        },
-
-        body: JSON.stringify({
-
-          model:
-            OPENROUTER_MODEL,
-
-          messages: [
-
-            {
-              role: "system",
-
-              content:
-                systemPrompt,
-            },
-
-            {
-              role: "user",
-
-              content:
-                userPrompt,
-            },
-
-          ],
-
-          temperature: 0.7,
-
-          max_tokens: 1200,
-
-        }),
-      }
-    );
-
-  /* =======================================================
-     Handle API Error
-  ======================================================= */
-
-  if (!response.ok) {
-
-    let errorMessage =
-      "OpenRouter request failed.";
-
-    try {
-
-      const errorData =
-        await response.json();
-
-      console.error(
-        "OpenRouter API error:",
-        errorData
-      );
-
-      if (
-        errorData?.error?.message
-      ) {
-
-        errorMessage =
-          errorData.error.message;
-
-      }
-
-    } catch {
-
-      console.error(
-        "Could not read OpenRouter error response."
-      );
-
-    }
-
-    throw new Error(
-      errorMessage
-    );
-
-  }
-
-  /* =======================================================
-     Read Response
-  ======================================================= */
-
-  const data =
-    await response.json();
-
-  console.log(
-    "OpenRouter response:",
-    data
-  );
-
-  /* =======================================================
-     Extract AI Message
-  ======================================================= */
-
-  const content =
-    data?.choices?.[0]?.message?.content;
-
-  if (
-    !content ||
-    typeof content !== "string"
-  ) {
-
-    throw new Error(
-      "OpenRouter returned an empty response."
-    );
-
-  }
-
-  /* =======================================================
-     Clean JSON Response
-  ======================================================= */
-
-  let cleanedContent =
-    content.trim();
-
-  /*
-   * Sometimes AI models wrap JSON
-   * inside markdown code blocks.
-   */
-
-  if (
-    cleanedContent.startsWith(
-      "```"
-    )
-  ) {
-
-    cleanedContent =
-      cleanedContent
-        .replace(
-          /^```(?:json)?/i,
-          ""
-        )
-        .replace(
-          /```$/,
-          ""
-        )
-        .trim();
-
-  }
-
-  /* =======================================================
-     Parse JSON
-  ======================================================= */
-
-  let parsedData:
-    GeneratedQuestionsResponse;
 
   try {
+    const responseText = await callGemini(
+      systemPrompt,
+      userPrompt
+    );
 
-    parsedData =
-      JSON.parse(
-        cleanedContent
+    console.log("Gemini raw question response:", responseText);
+
+    const cleanedResponse = cleanJsonResponse(responseText);
+
+    let parsed: {
+      questions?: InterviewQuestion[];
+    };
+
+    try {
+      parsed = JSON.parse(cleanedResponse);
+    } catch (parseError) {
+      console.error(
+        "AI JSON parsing error:",
+        parseError
       );
 
-  } catch (error) {
+      console.error(
+        "AI returned:",
+        cleanedResponse
+      );
 
+      throw new Error(
+        "Gemini returned invalid JSON. Please try starting the interview again."
+      );
+    }
+
+    // =====================================================
+    // VALIDATE RESPONSE
+    // =====================================================
+
+    if (
+      !parsed ||
+      !Array.isArray(parsed.questions)
+    ) {
+      console.error(
+        "Invalid question structure:",
+        parsed
+      );
+
+      throw new Error(
+        "The AI returned an invalid question format. Please try starting the interview again."
+      );
+    }
+
+    if (parsed.questions.length === 0) {
+      throw new Error(
+        "Gemini did not generate any interview questions."
+      );
+    }
+
+    const validQuestions = parsed.questions.filter(
+      (question): question is InterviewQuestion =>
+        typeof question.id === "number" &&
+        typeof question.question === "string" &&
+        question.question.trim().length > 0
+    );
+
+    if (validQuestions.length === 0) {
+      throw new Error(
+        "Gemini returned invalid interview questions."
+      );
+    }
+
+    // Re-number questions to make sure IDs are clean
+    const questions = validQuestions.map(
+      (question, index) => ({
+        id: index + 1,
+        question: question.question.trim(),
+      })
+    );
+
+    console.log(
+      "Generated interview questions:",
+      questions
+    );
+
+    return questions;
+  } catch (error) {
     console.error(
-      "Failed to parse AI JSON:",
+      "generateInterviewQuestions error:",
       error
     );
 
-    console.error(
-      "AI returned:",
-      content
-    );
+    if (error instanceof Error) {
+      throw error;
+    }
 
     throw new Error(
-      "The AI returned an invalid question format."
+      "Failed to generate interview questions. Please try again."
     );
-
   }
-
-  /* =======================================================
-     Validate Questions
-  ======================================================= */
-
-  if (
-    !Array.isArray(
-      parsedData.questions
-    )
-  ) {
-
-    throw new Error(
-      "The AI response does not contain a valid questions array."
-    );
-
-  }
-
-  const questions =
-    parsedData.questions
-      .filter(
-        (question) =>
-          typeof question === "string"
-      )
-      .map(
-        (question) =>
-          question.trim()
-      )
-      .filter(
-        (question) =>
-          question.length > 0
-      );
-
-  if (
-    questions.length === 0
-  ) {
-
-    throw new Error(
-      "No interview questions were generated."
-    );
-
-  }
-
-  /* =======================================================
-     Return Questions
-  ======================================================= */
-
-  return questions;
-
 }
