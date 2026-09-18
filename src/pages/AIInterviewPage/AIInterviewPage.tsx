@@ -964,11 +964,7 @@ Generate exactly ${questionCount} personalised interview questions.
             "grfiRole"
           ) || "";
 
-        const jobDescription =
-          sessionStorage.getItem(
-            "grfiJobDescription"
-          ) || "";
-
+        
         const targetRole =
           jobInputType === "role"
             ? role
