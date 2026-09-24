@@ -1,4 +1,3 @@
-
 import {
   useEffect,
   useRef,
@@ -15,7 +14,7 @@ import TextToSpeechAI from "../../Components/InterviewParts/TextToSpeechAI";
 import "./AIInterviewPage.css";
 
 /* =========================================================
-   Types
+   TYPES
 ========================================================= */
 
 interface InterviewQuestion {
@@ -33,22 +32,30 @@ interface GeminiResponse {
   }[];
 }
 
-interface InterviewEvaluation {
+interface InterviewAnswer {
+  questionId: number;
+  question: string;
+  answer: string;
+}
+
+interface QuestionFeedback {
+  questionId: number;
   score: number;
   strengths: string[];
   improvements: string[];
   betterAnswer: string;
 }
 
-interface InterviewAnswer {
-  questionId: number;
-  question: string;
-  answer: string;
-  evaluation: InterviewEvaluation;
+interface InterviewAnalysis {
+  overallScore: number;
+  summary: string;
+  strengths: string[];
+  improvements: string[];
+  questionFeedback: QuestionFeedback[];
 }
 
 /* =========================================================
-   Gemini Configuration
+   GEMINI CONFIGURATION
 ========================================================= */
 
 const GEMINI_MODEL =
@@ -58,21 +65,12 @@ const GEMINI_MODEL =
 const GEMINI_API_KEY =
   import.meta.env.VITE_GEMINI_API_KEY;
 
-/*
- * Question generation needs enough tokens for
- * multiple complete questions.
- *
- * 900 was too small in your previous version.
- */
-const QUESTION_MAX_OUTPUT_TOKENS = 1800;
+const QUESTION_MAX_OUTPUT_TOKENS = 3000;
 
-/*
- * Evaluation responses are much smaller.
- */
-const EVALUATION_MAX_OUTPUT_TOKENS = 800;
+const ANALYSIS_MAX_OUTPUT_TOKENS = 5000;
 
 /* =========================================================
-   Gemini API Helper
+   GEMINI API HELPER
 ========================================================= */
 
 async function callGemini(
@@ -170,11 +168,15 @@ async function callGemini(
     data.candidates?.[0]
       ?.content
       ?.parts
-      ?.map((part) => part.text || "")
+      ?.map(
+        (part) =>
+          part.text || ""
+      )
       .join("")
       .trim();
 
   if (!content) {
+
     console.error(
       "Gemini returned:",
       data
@@ -189,7 +191,7 @@ async function callGemini(
 }
 
 /* =========================================================
-   Clean Gemini JSON
+   CLEAN GEMINI JSON
 ========================================================= */
 
 function cleanGeminiJson(
@@ -198,11 +200,6 @@ function cleanGeminiJson(
 
   let cleaned =
     content.trim();
-
-  /*
-   * Remove markdown code fences if Gemini
-   * adds them despite being asked for JSON.
-   */
 
   cleaned =
     cleaned.replace(
@@ -226,22 +223,27 @@ function cleanGeminiJson(
 }
 
 /* =========================================================
-   AI Interview Page
+   AI INTERVIEW PAGE
 ========================================================= */
 
 function AIInterviewPage() {
 
-  const navigate = useNavigate();
+  const navigate =
+    useNavigate();
 
   /* =======================================================
-     Camera
+     CAMERA
   ======================================================= */
 
   const videoRef =
-    useRef<HTMLVideoElement | null>(null);
+    useRef<HTMLVideoElement | null>(
+      null
+    );
 
   const mediaStreamRef =
-    useRef<MediaStream | null>(null);
+    useRef<MediaStream | null>(
+      null
+    );
 
   const [
     isCameraOn,
@@ -254,20 +256,18 @@ function AIInterviewPage() {
   ] = useState("");
 
   /* =======================================================
-     Question Generation Protection
+     QUESTION GENERATION
   ======================================================= */
 
   const questionGenerationStarted =
     useRef(false);
 
-  /* =======================================================
-     Questions
-  ======================================================= */
-
   const [
     questions,
     setQuestions,
-  ] = useState<InterviewQuestion[]>([]);
+  ] = useState<
+    InterviewQuestion[]
+  >([]);
 
   const [
     currentQuestionIndex,
@@ -285,13 +285,15 @@ function AIInterviewPage() {
   ] = useState("");
 
   /* =======================================================
-     Answer
+     ANSWER
   ======================================================= */
 
   const [
     answerMode,
     setAnswerMode,
-  ] = useState<"type" | "speak">("type");
+  ] = useState<
+    "type" | "speak"
+  >("type");
 
   const [
     answer,
@@ -304,7 +306,7 @@ function AIInterviewPage() {
   ] = useState(false);
 
   /* =======================================================
-     AI Speaking
+     AI SPEAKING
   ======================================================= */
 
   const [
@@ -313,33 +315,32 @@ function AIInterviewPage() {
   ] = useState(false);
 
   /* =======================================================
-     6C - Evaluation
+     COLLECTED ANSWERS
   ======================================================= */
-
-  const [
-    isEvaluating,
-    setIsEvaluating,
-  ] = useState(false);
-
-  const [
-    evaluationError,
-    setEvaluationError,
-  ] = useState("");
-
-  const [
-    currentEvaluation,
-    setCurrentEvaluation,
-  ] = useState<InterviewEvaluation | null>(
-    null
-  );
 
   const [
     interviewAnswers,
     setInterviewAnswers,
-  ] = useState<InterviewAnswer[]>([]);
+  ] = useState<
+    InterviewAnswer[]
+  >([]);
 
   /* =======================================================
-     Interview Complete
+     FINAL ANALYSIS
+  ======================================================= */
+
+  const [
+    isAnalyzingInterview,
+    setIsAnalyzingInterview,
+  ] = useState(false);
+
+  const [
+    analysisError,
+    setAnalysisError,
+  ] = useState("");
+
+  /* =======================================================
+     INTERVIEW COMPLETE
   ======================================================= */
 
   const [
@@ -348,7 +349,7 @@ function AIInterviewPage() {
   ] = useState(false);
 
   /* =======================================================
-     Current Question
+     CURRENT QUESTION
   ======================================================= */
 
   const currentQuestion =
@@ -357,7 +358,7 @@ function AIInterviewPage() {
     ];
 
   /* =========================================================
-     Start Camera + Microphone
+     START CAMERA + MICROPHONE
   ========================================================= */
 
   useEffect(() => {
@@ -372,15 +373,12 @@ function AIInterviewPage() {
           setCameraError("");
 
           const stream =
-            await navigator.mediaDevices.getUserMedia({
-              video: true,
-              audio: true,
-            });
-
-          /*
-           * Component may have been removed while
-           * permission dialog was open.
-           */
+            await navigator.mediaDevices.getUserMedia(
+              {
+                video: true,
+                audio: true,
+              }
+            );
 
           if (!mounted) {
 
@@ -401,7 +399,6 @@ function AIInterviewPage() {
 
             videoRef.current.srcObject =
               stream;
-
           }
 
           setIsCameraOn(true);
@@ -447,17 +444,14 @@ function AIInterviewPage() {
   }, []);
 
   /* =========================================================
-     Generate Questions with Gemini
+     GENERATE QUESTIONS
+     
+     GEMINI CALL #1
+     
+     This is the ONLY AI call before the interview ends.
   ========================================================= */
 
   useEffect(() => {
-
-    /*
-     * Prevent duplicate Gemini requests.
-     *
-     * React StrictMode can run effects twice
-     * during development.
-     */
 
     if (
       questionGenerationStarted.current
@@ -474,12 +468,14 @@ function AIInterviewPage() {
 
         try {
 
-          setIsGeneratingQuestions(true);
+          setIsGeneratingQuestions(
+            true
+          );
 
           setQuestionError("");
 
           /* ===============================================
-             Get Interview Information
+             GET INTERVIEW INFORMATION
           =============================================== */
 
           const cvText =
@@ -520,10 +516,12 @@ function AIInterviewPage() {
             );
 
           /* ===============================================
-             Validate CV
+             VALIDATE CV
           =============================================== */
 
-          if (!cvText?.trim()) {
+          if (
+            !cvText?.trim()
+          ) {
 
             throw new Error(
               "CV information is missing. Please return to the setup page and upload your CV again."
@@ -531,7 +529,7 @@ function AIInterviewPage() {
           }
 
           /* ===============================================
-             Determine Target Job
+             TARGET JOB
           =============================================== */
 
           const targetJob =
@@ -549,41 +547,46 @@ function AIInterviewPage() {
           }
 
           /* ===============================================
-             Prompt
+             SYSTEM PROMPT
           =============================================== */
 
           const systemPrompt = `
-You are an expert interviewer for GRFI
-(Get Ready For Interview).
+You are GRFI, an AI interview coach.
 
-Generate personalised interview questions
-for the candidate.
+Create personalised interview questions
+for a candidate.
 
-Use:
+Use the candidate's CV and target job
+to create realistic questions.
 
-- The candidate's actual CV
-- Their technical skills
-- Their projects
-- Their experience
-- The target job or role
+Consider:
+
+- Candidate experience
+- Candidate projects
+- Candidate technical skills
+- Candidate responsibilities
+- Target role
+- Job description
 - Interview type
 - Difficulty
 
 Rules:
 
-1. Never invent experience, skills or projects.
-2. Make questions relevant to the target role.
-3. Make questions relevant to the candidate's CV.
-4. Follow the requested interview type.
-5. Follow the requested difficulty.
+1. Never invent candidate experience.
+2. Never invent candidate projects.
+3. Never invent candidate skills.
+4. Questions must be relevant to the target role.
+5. Questions should feel like real interview questions.
 6. Avoid duplicate questions.
-7. Make questions clear and conversational.
-8. Prefer practical and scenario-based questions where appropriate.
+7. Use a mixture of technical, behavioural,
+   practical and scenario questions when
+   interview type is mixed.
+8. Keep questions clear and conversational.
 9. Return ONLY valid JSON.
 10. Do not use markdown.
-11. Do not add explanations.
+11. Do not include explanations.
 
-Return exactly this structure:
+Return exactly:
 
 {
   "questions": [
@@ -593,19 +596,25 @@ Return exactly this structure:
     }
   ]
 }
-
-Generate exactly the requested number of questions.
 `;
+
+          /* ===============================================
+             USER PROMPT
+          =============================================== */
 
           const userPrompt = `
 Candidate CV:
 
+----------------
 ${cvText}
+----------------
 
 
-Target Job or Role:
+Target Job / Role:
 
+----------------
 ${targetJob}
+----------------
 
 
 Interview Type:
@@ -623,7 +632,8 @@ Number of Questions:
 ${questionCount}
 
 
-Generate exactly ${questionCount} personalised interview questions.
+Generate exactly ${questionCount}
+personalised interview questions.
 `;
 
           console.log(
@@ -631,7 +641,7 @@ Generate exactly ${questionCount} personalised interview questions.
           );
 
           /* ===============================================
-             Gemini Request
+             GEMINI REQUEST
           =============================================== */
 
           const content =
@@ -647,7 +657,7 @@ Generate exactly ${questionCount} personalised interview questions.
           );
 
           /* ===============================================
-             Clean JSON
+             CLEAN JSON
           =============================================== */
 
           const cleanedContent =
@@ -656,7 +666,7 @@ Generate exactly ${questionCount} personalised interview questions.
             );
 
           /* ===============================================
-             Parse JSON
+             PARSE JSON
           =============================================== */
 
           let parsed: {
@@ -684,18 +694,13 @@ Generate exactly ${questionCount} personalised interview questions.
               cleanedContent
             );
 
-            /*
-             * This usually means Gemini stopped
-             * before completing the JSON response.
-             */
-
             throw new Error(
               "Gemini returned an incomplete question response. Please try starting the interview again."
             );
           }
 
           /* ===============================================
-             Validate Questions
+             VALIDATE QUESTIONS
           =============================================== */
 
           if (
@@ -713,11 +718,14 @@ Generate exactly ${questionCount} personalised interview questions.
           const validQuestions =
             parsed.questions
               .filter(
-                (item) =>
-                  item &&
+                (
+                  item
+                ): item is InterviewQuestion =>
+                  Boolean(item) &&
                   typeof item.question ===
                     "string" &&
                   item.question.trim()
+                    .length > 0
               )
               .map(
                 (
@@ -741,12 +749,6 @@ Generate exactly ${questionCount} personalised interview questions.
             );
           }
 
-          /*
-           * If Gemini returns fewer questions than requested,
-           * tell the user rather than silently pretending
-           * the interview has the requested number.
-           */
-
           if (
             validQuestions.length <
             questionCount
@@ -758,7 +760,7 @@ Generate exactly ${questionCount} personalised interview questions.
           }
 
           /* ===============================================
-             Store Questions
+             SAVE QUESTIONS
           =============================================== */
 
           sessionStorage.setItem(
@@ -768,15 +770,20 @@ Generate exactly ${questionCount} personalised interview questions.
             )
           );
 
-          /*
-           * Clear any previous interview evaluations.
-           *
-           * This prevents an old interview's answers
-           * appearing in the new interview.
-           */
+          /* ===============================================
+             START FRESH INTERVIEW
+          =============================================== */
 
           sessionStorage.removeItem(
             "grfiInterviewAnswers"
+          );
+
+          sessionStorage.removeItem(
+            "grfiInterviewAnalysis"
+          );
+
+          setInterviewAnswers(
+            []
           );
 
           setQuestions(
@@ -813,7 +820,7 @@ Generate exactly ${questionCount} personalised interview questions.
   }, []);
 
   /* =========================================================
-     AI Question Speech Started
+     AI QUESTION SPEECH
   ========================================================= */
 
   const handleQuestionSpeechStart =
@@ -822,12 +829,7 @@ Generate exactly ${questionCount} personalised interview questions.
       setIsAISpeaking(
         true
       );
-
     };
-
-  /* =========================================================
-     AI Question Speech Ended
-  ========================================================= */
 
   const handleQuestionSpeechEnd =
     () => {
@@ -835,11 +837,10 @@ Generate exactly ${questionCount} personalised interview questions.
       setIsAISpeaking(
         false
       );
-
     };
 
   /* =========================================================
-     Speech Transcript
+     SPEECH TRANSCRIPT
   ========================================================= */
 
   const handleSpeechTranscript =
@@ -850,11 +851,10 @@ Generate exactly ${questionCount} personalised interview questions.
       setAnswer(
         transcript
       );
-
     };
 
   /* =========================================================
-     Candidate Speech Started
+     SPEECH START
   ========================================================= */
 
   const handleSpeechStart =
@@ -863,11 +863,10 @@ Generate exactly ${questionCount} personalised interview questions.
       setIsListening(
         true
       );
-
     };
 
   /* =========================================================
-     Candidate Speech Ended
+     SPEECH END
   ========================================================= */
 
   const handleSpeechEnd =
@@ -876,11 +875,10 @@ Generate exactly ${questionCount} personalised interview questions.
       setIsListening(
         false
       );
-
     };
 
   /* =========================================================
-     Stop Media
+     STOP MEDIA
   ========================================================= */
 
   const stopMedia =
@@ -909,10 +907,495 @@ Generate exactly ${questionCount} personalised interview questions.
     };
 
   /* =========================================================
-     6C - Evaluate Candidate Answer
+     FINAL INTERVIEW ANALYSIS
+     
+     GEMINI CALL #2
+     
+     This happens ONLY after every question is answered.
   ========================================================= */
 
-  const evaluateAnswer =
+  const analyseCompleteInterview =
+    async (
+      allAnswers: InterviewAnswer[]
+    ) => {
+
+      if (
+        allAnswers.length === 0
+      ) {
+
+        throw new Error(
+          "No interview answers were collected."
+        );
+      }
+
+      const cvText =
+        sessionStorage.getItem(
+          "grfiCvText"
+        ) || "";
+
+      const jobInputType =
+        sessionStorage.getItem(
+          "grfiJobInputType"
+        );
+
+      const jobDescription =
+        sessionStorage.getItem(
+          "grfiJobDescription"
+        ) || "";
+
+      const role =
+        sessionStorage.getItem(
+          "grfiRole"
+        ) || "";
+
+      const interviewType =
+        sessionStorage.getItem(
+          "grfiInterviewType"
+        ) || "mixed";
+
+      const difficulty =
+        sessionStorage.getItem(
+          "grfiDifficulty"
+        ) || "medium";
+
+      const targetJob =
+        jobInputType === "role"
+          ? role
+          : jobDescription;
+
+      /* ===============================================
+         CREATE COMPLETE Q&A
+      =============================================== */
+
+      const interviewTranscript =
+        allAnswers
+          .map(
+            (
+              item,
+              index
+            ) => `
+QUESTION ${index + 1}:
+
+${item.question}
+
+CANDIDATE ANSWER:
+
+${item.answer}
+`
+          )
+          .join("\n\n");
+
+      /* ===============================================
+         SYSTEM PROMPT
+      =============================================== */
+
+      const systemPrompt = `
+You are the final AI interview evaluator
+for GRFI.
+
+The candidate has completed the entire
+interview.
+
+You must analyse the COMPLETE interview,
+not individual answers separately.
+
+Evaluate:
+
+- Overall interview performance
+- Technical understanding
+- Problem solving
+- Communication
+- Relevance
+- Practical experience
+- Depth of answers
+- Completeness
+- Confidence based ONLY on the content
+  of the answer
+- How well the answers match the target role
+
+Important rules:
+
+1. Evaluate the complete interview.
+2. Consider patterns across all answers.
+3. Do not invent candidate experience.
+4. Do not invent candidate skills.
+5. Do not evaluate accent.
+6. Do not heavily penalise grammar.
+7. Be realistic and constructive.
+8. Give an overall score from 1 to 10.
+9. Give strengths across the complete interview.
+10. Give improvement areas across the complete interview.
+11. Give feedback for every question.
+12. Give a better example answer for every question.
+13. Keep better answers realistic for this candidate.
+14. Return ONLY valid JSON.
+15. Do not use markdown.
+
+Return exactly:
+
+{
+  "overallScore": 7,
+  "summary": "Overall interview summary.",
+  "strengths": [
+    "Strength 1",
+    "Strength 2",
+    "Strength 3"
+  ],
+  "improvements": [
+    "Improvement 1",
+    "Improvement 2",
+    "Improvement 3"
+  ],
+  "questionFeedback": [
+    {
+      "questionId": 1,
+      "score": 7,
+      "strengths": [
+        "What was good"
+      ],
+      "improvements": [
+        "What could improve"
+      ],
+      "betterAnswer": "A stronger realistic answer."
+    }
+  ]
+}
+`;
+
+      /* ===============================================
+         USER PROMPT
+      =============================================== */
+
+      const userPrompt = `
+CANDIDATE CV:
+
+----------------
+${cvText}
+----------------
+
+
+TARGET JOB / ROLE:
+
+----------------
+${targetJob}
+----------------
+
+
+INTERVIEW TYPE:
+
+${interviewType}
+
+
+DIFFICULTY:
+
+${difficulty}
+
+
+COMPLETE INTERVIEW:
+
+==============================
+
+${interviewTranscript}
+
+==============================
+
+Analyse the candidate's complete interview.
+
+There are ${allAnswers.length} answered questions.
+
+Return feedback for all ${allAnswers.length} questions.
+`;
+
+      console.log(
+        "Sending complete interview to Gemini for final analysis..."
+      );
+
+      /* ===============================================
+         GEMINI REQUEST
+      =============================================== */
+
+      const content =
+        await callGemini(
+          systemPrompt,
+          userPrompt,
+          ANALYSIS_MAX_OUTPUT_TOKENS
+        );
+
+      console.log(
+        "Gemini final analysis:",
+        content
+      );
+
+      /* ===============================================
+         CLEAN JSON
+      =============================================== */
+
+      const cleanedContent =
+        cleanGeminiJson(
+          content
+        );
+
+      /* ===============================================
+         PARSE ANALYSIS
+      =============================================== */
+
+      let analysis:
+        InterviewAnalysis;
+
+      try {
+
+        analysis =
+          JSON.parse(
+            cleanedContent
+          ) as InterviewAnalysis;
+
+      } catch (error) {
+
+        console.error(
+          "Final analysis JSON error:",
+          error
+        );
+
+        console.error(
+          "Gemini returned:",
+          cleanedContent
+        );
+
+        throw new Error(
+          "Gemini returned an incomplete interview analysis. Please try again."
+        );
+      }
+
+      /* ===============================================
+         VALIDATE ANALYSIS
+      =============================================== */
+
+      if (
+        typeof analysis.overallScore !==
+          "number" ||
+        typeof analysis.summary !==
+          "string" ||
+        !Array.isArray(
+          analysis.strengths
+        ) ||
+        !Array.isArray(
+          analysis.improvements
+        ) ||
+        !Array.isArray(
+          analysis.questionFeedback
+        )
+      ) {
+
+        throw new Error(
+          "Gemini returned an invalid interview analysis."
+        );
+      }
+
+      /* ===============================================
+         SAFE OVERALL SCORE
+      =============================================== */
+
+      const safeOverallScore =
+        Math.min(
+          10,
+          Math.max(
+            1,
+            Math.round(
+              analysis.overallScore
+            )
+          )
+        );
+
+      /* ===============================================
+         SAFE QUESTION FEEDBACK
+      =============================================== */
+
+      const safeQuestionFeedback =
+        analysis.questionFeedback
+          .filter(
+            (item) =>
+              item &&
+              typeof item.questionId ===
+                "number" &&
+              typeof item.score ===
+                "number" &&
+              Array.isArray(
+                item.strengths
+              ) &&
+              Array.isArray(
+                item.improvements
+              ) &&
+              typeof item.betterAnswer ===
+                "string"
+          )
+          .map(
+            (item) => ({
+              questionId:
+                item.questionId,
+
+              score:
+                Math.min(
+                  10,
+                  Math.max(
+                    1,
+                    Math.round(
+                      item.score
+                    )
+                  )
+                ),
+
+              strengths:
+                item.strengths
+                  .filter(
+                    (
+                      value
+                    ) =>
+                      typeof value ===
+                      "string"
+                  )
+                  .map(
+                    (
+                      value
+                    ) =>
+                      value.trim()
+                  )
+                  .filter(
+                    (
+                      value
+                    ) =>
+                      value.length > 0
+                  ),
+
+              improvements:
+                item.improvements
+                  .filter(
+                    (
+                      value
+                    ) =>
+                      typeof value ===
+                      "string"
+                  )
+                  .map(
+                    (
+                      value
+                    ) =>
+                      value.trim()
+                  )
+                  .filter(
+                    (
+                      value
+                    ) =>
+                      value.length > 0
+                  ),
+
+              betterAnswer:
+                item.betterAnswer.trim(),
+            })
+          );
+
+      if (
+        safeQuestionFeedback.length === 0
+      ) {
+
+        throw new Error(
+          "Gemini did not return question-by-question feedback."
+        );
+      }
+
+      const finalAnalysis:
+        InterviewAnalysis = {
+
+        overallScore:
+          safeOverallScore,
+
+        summary:
+          analysis.summary.trim(),
+
+        strengths:
+          analysis.strengths
+            .filter(
+              (
+                value
+              ) =>
+                typeof value ===
+                "string"
+            )
+            .map(
+              (
+                value
+              ) =>
+                value.trim()
+            )
+            .filter(
+              (
+                value
+              ) =>
+                value.length > 0
+            ),
+
+        improvements:
+          analysis.improvements
+            .filter(
+              (
+                value
+              ) =>
+                typeof value ===
+                "string"
+            )
+            .map(
+              (
+                value
+              ) =>
+                value.trim()
+            )
+            .filter(
+              (
+                value
+              ) =>
+                value.length > 0
+            ),
+
+        questionFeedback:
+          safeQuestionFeedback,
+      };
+
+      /* ===============================================
+         SAVE FINAL ANALYSIS
+      =============================================== */
+
+      sessionStorage.setItem(
+        "grfiInterviewAnalysis",
+        JSON.stringify(
+          finalAnalysis
+        )
+      );
+
+      /* ===============================================
+         ALSO KEEP COMPLETE ANSWERS
+      =============================================== */
+
+      sessionStorage.setItem(
+        "grfiInterviewAnswers",
+        JSON.stringify(
+          allAnswers
+        )
+      );
+
+      console.log(
+        "Final interview analysis saved."
+      );
+
+      return finalAnalysis;
+    };
+
+  /* =========================================================
+     SUBMIT ANSWER
+     
+     IMPORTANT:
+     NO GEMINI CALL HERE.
+  ========================================================= */
+
+  const handleSubmitAnswer =
     async () => {
 
       if (
@@ -932,400 +1415,132 @@ Generate exactly ${questionCount} personalised interview questions.
         return;
       }
 
-      try {
+      /* ===============================================
+         CREATE ANSWER RECORD
+      =============================================== */
 
-        setIsEvaluating(
-          true
+      const answerRecord:
+        InterviewAnswer = {
+
+        questionId:
+          currentQuestion.id,
+
+        question:
+          currentQuestion.question,
+
+        answer:
+          trimmedAnswer,
+      };
+
+      /* ===============================================
+         UPDATE ANSWER COLLECTION
+      =============================================== */
+
+      const filteredAnswers =
+        interviewAnswers.filter(
+          (item) =>
+            item.questionId !==
+            currentQuestion.id
         );
 
-        setEvaluationError("");
-
-        setCurrentEvaluation(
-          null
-        );
-
-        const interviewType =
-          sessionStorage.getItem(
-            "grfiInterviewType"
-          ) || "mixed";
-
-        const difficulty =
-          sessionStorage.getItem(
-            "grfiDifficulty"
-          ) || "medium";
-
-        const jobInputType =
-          sessionStorage.getItem(
-            "grfiJobInputType"
-          );
-
-        const role =
-          sessionStorage.getItem(
-            "grfiRole"
-          ) || "";
-
-        
-        const targetRole =
-          jobInputType === "role"
-            ? role
-            : "the role described in the job description";
-
-        /* ===============================================
-           Evaluation System Prompt
-        =============================================== */
-
-        const systemPrompt = `
-You are an experienced professional interviewer
-evaluating a candidate's answer.
-
-Evaluate the candidate fairly.
-
-Consider:
-
-- Relevance
-- Technical accuracy
-- Understanding
-- Depth
-- Practical experience
-- Problem solving
-- Communication
-- Completeness
-
-Important:
-
-1. Do not invent facts about the candidate.
-2. Do not give credit for information that was not provided.
-3. Do not penalise grammar heavily.
-4. Do not evaluate accent.
-5. Focus on the content of the answer.
-6. Give a realistic score from 1 to 10.
-7. Be specific and constructive.
-8. Return ONLY valid JSON.
-9. Do not use markdown.
-
-Return exactly:
-
-{
-  "score": 8,
-  "strengths": [
-    "Strength 1",
-    "Strength 2"
-  ],
-  "improvements": [
-    "Improvement 1",
-    "Improvement 2"
-  ],
-  "betterAnswer": "Example of a stronger answer."
-}
-
-The betterAnswer should be concise,
-realistic and relevant to the question.
-`;
-
-        /* ===============================================
-           Evaluation User Prompt
-        =============================================== */
-
-        const userPrompt = `
-Target Role:
-
-${targetRole}
-
-
-Interview Type:
-
-${interviewType}
-
-
-Difficulty:
-
-${difficulty}
-
-
-Interview Question:
-
-${currentQuestion.question}
-
-
-Candidate Answer:
-
-${trimmedAnswer}
-
-
-Evaluate this candidate answer.
-`;
-
-        console.log(
-          "Evaluating candidate answer with Gemini..."
-        );
-
-        /* ===============================================
-           Gemini Evaluation Request
-        =============================================== */
-
-        const content =
-          await callGemini(
-            systemPrompt,
-            userPrompt,
-            EVALUATION_MAX_OUTPUT_TOKENS
-          );
-
-        console.log(
-          "Gemini evaluation response:",
-          content
-        );
-
-        /* ===============================================
-           Clean JSON
-        =============================================== */
-
-        const cleanedContent =
-          cleanGeminiJson(
-            content
-          );
-
-        /* ===============================================
-           Parse Evaluation
-        =============================================== */
-
-        let evaluation:
-          InterviewEvaluation;
-
-        try {
-
-          evaluation =
-            JSON.parse(
-              cleanedContent
-            ) as InterviewEvaluation;
-
-        } catch (error) {
-
-          console.error(
-            "Evaluation JSON parsing error:",
-            error
-          );
-
-          console.error(
-            "Gemini returned:",
-            cleanedContent
-          );
-
-          throw new Error(
-            "Gemini returned an incomplete evaluation. Please try submitting your answer again."
-          );
-        }
-
-        /* ===============================================
-           Validate Evaluation
-        =============================================== */
-
-        if (
-          typeof evaluation.score !==
-            "number" ||
-          !Array.isArray(
-            evaluation.strengths
-          ) ||
-          !Array.isArray(
-            evaluation.improvements
-          ) ||
-          typeof evaluation.betterAnswer !==
-            "string"
-        ) {
-
-          throw new Error(
-            "Gemini returned an invalid evaluation format."
-          );
-        }
-
-        /*
-         * Keep score safely between 1 and 10.
-         */
-
-        const safeScore =
-          Math.min(
-            10,
-            Math.max(
-              1,
-              Math.round(
-                evaluation.score
-              )
-            )
-          );
-
-        const finalEvaluation:
-          InterviewEvaluation = {
-            score:
-              safeScore,
-
-            strengths:
-              evaluation.strengths
-                .filter(
-                  (
-                    item
-                  ) =>
-                    typeof item ===
-                    "string"
-                )
-                .map(
-                  (
-                    item
-                  ) =>
-                    item.trim()
-                )
-                .filter(
-                  (
-                    item
-                  ) =>
-                    item.length > 0
-                ),
-
-            improvements:
-              evaluation.improvements
-                .filter(
-                  (
-                    item
-                  ) =>
-                    typeof item ===
-                    "string"
-                )
-                .map(
-                  (
-                    item
-                  ) =>
-                    item.trim()
-                )
-                .filter(
-                  (
-                    item
-                  ) =>
-                    item.length > 0
-                ),
-
-            betterAnswer:
-              evaluation.betterAnswer.trim(),
-          };
-
-        /* ===============================================
-           Store Current Evaluation
-        =============================================== */
-
-        setCurrentEvaluation(
-          finalEvaluation
-        );
-
-        /* ===============================================
-           Store Complete Answer Record
-        =============================================== */
-
-        const answerRecord:
-          InterviewAnswer = {
-            questionId:
-              currentQuestion.id,
-
-            question:
-              currentQuestion.question,
-
-            answer:
-              trimmedAnswer,
-
-            evaluation:
-              finalEvaluation,
-          };
-
-        setInterviewAnswers(
-          (previousAnswers) => {
-
-            /*
-             * Prevent duplicate records if
-             * the user somehow submits twice.
-             */
-
-            const filteredAnswers =
-              previousAnswers.filter(
-                (item) =>
-                  item.questionId !==
-                  currentQuestion.id
-              );
-
-            const updatedAnswers = [
-              ...filteredAnswers,
-              answerRecord,
-            ];
-
-            sessionStorage.setItem(
-              "grfiInterviewAnswers",
-              JSON.stringify(
-                updatedAnswers
-              )
-            );
-
-            return updatedAnswers;
-          }
-        );
-
-      } catch (error) {
-
-        console.error(
-          "Answer evaluation error:",
-          error
-        );
-
-        setEvaluationError(
-          error instanceof Error
-            ? error.message
-            : "Unable to evaluate your answer."
-        );
-
-      } finally {
-
-        setIsEvaluating(
-          false
-        );
-      }
-    };
-
-  /* =========================================================
-     Next Question
-  ========================================================= */
-
-  const handleNextQuestion =
-    () => {
-
-      if (
-        !currentEvaluation
-      ) {
-
-        return;
-      }
+      const updatedAnswers = [
+        ...filteredAnswers,
+        answerRecord,
+      ].sort(
+        (
+          first,
+          second
+        ) =>
+          first.questionId -
+          second.questionId
+      );
+
+      setInterviewAnswers(
+        updatedAnswers
+      );
+
+      /* ===============================================
+         SAVE IMMEDIATELY
+      =============================================== */
+
+      sessionStorage.setItem(
+        "grfiInterviewAnswers",
+        JSON.stringify(
+          updatedAnswers
+        )
+      );
+
+      console.log(
+        `Saved answer ${currentQuestionIndex + 1} of ${questions.length}`
+      );
+
+      /* ===============================================
+         CHECK LAST QUESTION
+      =============================================== */
 
       const isLastQuestion =
         currentQuestionIndex >=
         questions.length - 1;
 
-      /* ===============================================
-         Last Question
-      =============================================== */
-
       if (
         isLastQuestion
       ) {
 
-        setIsInterviewComplete(
-          true
-        );
+        /* =============================================
+           FINAL ANALYSIS STARTS
+        ============================================= */
 
-        stopMedia();
+        try {
 
-        console.log(
-          "Interview completed:",
-          interviewAnswers
-        );
+          setIsAnalyzingInterview(
+            true
+          );
+
+          setAnalysisError("");
+
+          stopMedia();
+
+          await analyseCompleteInterview(
+            updatedAnswers
+          );
+
+          /* =============================================
+             FINAL ANALYSIS COMPLETE
+          ============================================= */
+
+          setIsInterviewComplete(
+            true
+          );
+
+          navigate(
+            "/interviewResults"
+          );
+
+        } catch (error) {
+
+          console.error(
+            "Final interview analysis error:",
+            error
+          );
+
+          setAnalysisError(
+            error instanceof Error
+              ? error.message
+              : "Unable to analyse your complete interview."
+          );
+
+        } finally {
+
+          setIsAnalyzingInterview(
+            false
+          );
+        }
 
         return;
       }
 
       /* ===============================================
-         Next Question
+         MOVE TO NEXT QUESTION
       =============================================== */
 
       setCurrentQuestionIndex(
@@ -1342,17 +1557,10 @@ Evaluate this candidate answer.
       setIsListening(
         false
       );
-
-      setCurrentEvaluation(
-        null
-      );
-
-      setEvaluationError("");
-
     };
 
   /* =========================================================
-     End Interview
+     END INTERVIEW
   ========================================================= */
 
   const handleEndInterview =
@@ -1366,7 +1574,42 @@ Evaluate this candidate answer.
     };
 
   /* =========================================================
-     Loading Screen
+     FINAL ANALYSIS LOADING SCREEN
+  ========================================================= */
+
+  if (
+    isAnalyzingInterview
+  ) {
+
+    return (
+
+      <main className="realtime-interview">
+
+        <div className="interview-loading">
+
+          <div className="interview-loading__spinner">
+            AI
+          </div>
+
+          <h1>
+            Analysing your interview...
+          </h1>
+
+          <p>
+            GRFI is reviewing all your answers
+            and preparing your personalised
+            interview feedback.
+          </p>
+
+        </div>
+
+      </main>
+
+    );
+  }
+
+  /* =========================================================
+     QUESTION GENERATION LOADING
   ========================================================= */
 
   if (
@@ -1400,7 +1643,7 @@ Evaluate this candidate answer.
   }
 
   /* =========================================================
-     Error Screen
+     QUESTION ERROR
   ========================================================= */
 
   if (
@@ -1444,7 +1687,110 @@ Evaluate this candidate answer.
   }
 
   /* =========================================================
-     Interview Complete
+     FINAL ANALYSIS ERROR
+  ========================================================= */
+
+  if (
+    analysisError
+  ) {
+
+    return (
+
+      <main className="realtime-interview">
+
+        <div className="interview-error">
+
+          <div className="interview-error__icon">
+            !
+          </div>
+
+          <h1>
+            We couldn't analyse your interview
+          </h1>
+
+          <p>
+            {analysisError}
+          </p>
+
+          <button
+            type="button"
+            onClick={() => {
+
+              setAnalysisError("");
+
+              const savedAnswers =
+                sessionStorage.getItem(
+                  "grfiInterviewAnswers"
+                );
+
+              if (!savedAnswers) {
+                navigate(
+                  "/interviewSetUp"
+                );
+
+                return;
+              }
+
+              try {
+
+                const parsedAnswers =
+                  JSON.parse(
+                    savedAnswers
+                  ) as InterviewAnswer[];
+
+                setIsAnalyzingInterview(
+                  true
+                );
+
+                analyseCompleteInterview(
+                  parsedAnswers
+                )
+                  .then(() => {
+
+                    navigate(
+                      "/interviewResults"
+                    );
+
+                  })
+                  .catch(
+                    (error) => {
+
+                      setAnalysisError(
+                        error instanceof Error
+                          ? error.message
+                          : "Unable to analyse your interview."
+                      );
+
+                    }
+                  )
+                  .finally(() => {
+
+                    setIsAnalyzingInterview(
+                      false
+                    );
+
+                  });
+
+              } catch {
+
+                navigate(
+                  "/interviewSetUp"
+                );
+              }
+            }}
+          >
+            Try Analysis Again
+          </button>
+
+        </div>
+
+      </main>
+
+    );
+  }
+
+  /* =========================================================
+     INTERVIEW COMPLETE
   ========================================================= */
 
   if (
@@ -1466,19 +1812,19 @@ Evaluate this candidate answer.
           </h1>
 
           <p>
-            Great work. You've completed all{" "}
-            {questions.length} questions.
+            Your interview has been analysed.
+            Your personalised results are ready.
           </p>
 
           <button
             type="button"
             onClick={() =>
               navigate(
-                "/"
+                "/interviewResults"
               )
             }
           >
-            Finish
+            View Analysis
           </button>
 
         </div>
@@ -1489,16 +1835,16 @@ Evaluate this candidate answer.
   }
 
   /* =========================================================
-     Main Interview
+     MAIN INTERVIEW
   ========================================================= */
 
   return (
 
     <main className="realtime-interview">
 
-      {/* =====================================================
-          Header
-      ===================================================== */}
+      {/* ===================================================
+          HEADER
+      =================================================== */}
 
       <header className="realtime-interview__header">
 
@@ -1538,15 +1884,15 @@ Evaluate this candidate answer.
 
       </header>
 
-      {/* =====================================================
-          Main Content
-      ===================================================== */}
+      {/* ===================================================
+          MAIN CONTENT
+      =================================================== */}
 
       <div className="realtime-interview__content">
 
-        {/* ===================================================
-            AI Interviewer
-        =================================================== */}
+        {/* =================================================
+            AI INTERVIEWER
+        ================================================= */}
 
         <section className="ai-interviewer">
 
@@ -1572,19 +1918,17 @@ Evaluate this candidate answer.
 
           </div>
 
-          {/* AI Avatar */}
+          {/* AI AVATAR */}
 
           <div className="ai-avatar">
 
             <div className="ai-avatar__circle">
-
               AI
-
             </div>
 
           </div>
 
-          {/* Question */}
+          {/* QUESTION */}
 
           <div className="ai-question">
 
@@ -1604,7 +1948,7 @@ Evaluate this candidate answer.
 
           </div>
 
-          {/* Text To Speech */}
+          {/* TEXT TO SPEECH */}
 
           {currentQuestion && (
 
@@ -1624,14 +1968,14 @@ Evaluate this candidate answer.
 
         </section>
 
-        {/* ===================================================
-            Candidate Panel
-        =================================================== */}
+        {/* =================================================
+            CANDIDATE PANEL
+        ================================================= */}
 
         <section className="candidate-panel">
 
           {/* =================================================
-              Camera
+              CAMERA
           ================================================= */}
 
           <div className="candidate-camera">
@@ -1684,7 +2028,7 @@ Evaluate this candidate answer.
           )}
 
           {/* =================================================
-              Candidate Answer
+              CANDIDATE ANSWER
           ================================================= */}
 
           <div className="candidate-answer">
@@ -1706,67 +2050,56 @@ Evaluate this candidate answer.
             </div>
 
             {/* =================================================
-                Answer Modes
+                ANSWER MODES
             ================================================= */}
 
-            {!currentEvaluation && (
+            <div className="answer-mode">
 
-              <div className="answer-mode">
+              <button
+                type="button"
+                className={
+                  answerMode === "type"
+                    ? "answer-mode__button active"
+                    : "answer-mode__button"
+                }
+                onClick={() => {
 
-                <button
-                  type="button"
-                  className={
-                    answerMode === "type"
-                      ? "answer-mode__button active"
-                      : "answer-mode__button"
-                  }
-                  onClick={() => {
+                  setAnswerMode(
+                    "type"
+                  );
 
-                    setAnswerMode(
-                      "type"
-                    );
+                  setIsListening(
+                    false
+                  );
 
-                    setIsListening(
-                      false
-                    );
+                }}
+              >
+                ⌨️ Type
+              </button>
 
-                  }}
-                  disabled={
-                    isEvaluating
-                  }
-                >
-                  ⌨️ Type
-                </button>
+              <button
+                type="button"
+                className={
+                  answerMode === "speak"
+                    ? "answer-mode__button active"
+                    : "answer-mode__button"
+                }
+                onClick={() =>
+                  setAnswerMode(
+                    "speak"
+                  )
+                }
+              >
+                🎙️ Speak
+              </button>
 
-                <button
-                  type="button"
-                  className={
-                    answerMode === "speak"
-                      ? "answer-mode__button active"
-                      : "answer-mode__button"
-                  }
-                  onClick={() =>
-                    setAnswerMode(
-                      "speak"
-                    )
-                  }
-                  disabled={
-                    isEvaluating
-                  }
-                >
-                  🎙️ Speak
-                </button>
-
-              </div>
-
-            )}
+            </div>
 
             {/* =================================================
-                Type Answer
+                TYPE ANSWER
             ================================================= */}
 
-            {answerMode === "type" &&
-              !currentEvaluation && (
+            {answerMode === "type" && (
 
               <div className="type-answer">
 
@@ -1783,17 +2116,12 @@ Evaluate this candidate answer.
                   }
                   placeholder="Type your answer here..."
                   rows={6}
-                  disabled={
-                    isEvaluating
-                  }
                 />
 
                 <div className="answer-meta">
 
                   <span>
-
                     {answer.length} characters
-
                   </span>
 
                 </div>
@@ -1803,11 +2131,10 @@ Evaluate this candidate answer.
             )}
 
             {/* =================================================
-                Speak Answer
+                SPEAK ANSWER
             ================================================= */}
 
-            {answerMode === "speak" &&
-              !currentEvaluation && (
+            {answerMode === "speak" && (
 
               <div className="speak-answer">
 
@@ -1818,9 +2145,7 @@ Evaluate this candidate answer.
                       : "microphone-button"
                   }
                 >
-
                   🎙️
-
                 </div>
 
                 <h3>
@@ -1837,8 +2162,6 @@ Evaluate this candidate answer.
                   will appear as text here.
 
                 </p>
-
-                {/* Speech To Text */}
 
                 <SpeechToText
                   onTranscript={
@@ -1864,209 +2187,47 @@ Evaluate this candidate answer.
             )}
 
             {/* =================================================
-                Evaluation Error
+                FINAL ANALYSIS INFORMATION
             ================================================= */}
 
-            {evaluationError && (
+            <div className="answer-analysis-info">
 
-              <div className="evaluation-error">
+              <span>
+                AI analysis happens after the complete interview.
+              </span>
 
-                {evaluationError}
+              <p>
+                Your answer will be saved and reviewed
+                together with your other answers at the end.
+              </p>
 
-              </div>
-
-            )}
+            </div>
 
             {/* =================================================
-                Evaluation Loading
+                SUBMIT / NEXT QUESTION
             ================================================= */}
 
-            {isEvaluating && (
+            <button
+              type="button"
+              className="submit-answer"
+              disabled={
+                !answer.trim()
+              }
+              onClick={
+                handleSubmitAnswer
+              }
+            >
 
-              <div className="evaluation-loading">
+              {currentQuestionIndex ===
+              questions.length - 1
+                ? "Finish & Analyse Interview"
+                : "Save Answer & Next"}
 
-                <div>
-                  AI
-                </div>
+              <span>
+                →
+              </span>
 
-                <p>
-                  Evaluating your answer...
-                </p>
-
-              </div>
-
-            )}
-
-            {/* =================================================
-                6C - Evaluation Result
-            ================================================= */}
-
-            {currentEvaluation && (
-
-              <div className="evaluation-result">
-
-                {/* Evaluation Header */}
-
-                <div className="evaluation-result__header">
-
-                  <div>
-
-                    <span>
-                      AI Evaluation
-                    </span>
-
-                    <h2>
-                      Your answer has been evaluated
-                    </h2>
-
-                  </div>
-
-                  <div className="evaluation-score">
-
-                    <strong>
-                      {currentEvaluation.score}
-                    </strong>
-
-                    <span>
-                      /10
-                    </span>
-
-                  </div>
-
-                </div>
-
-                {/* Strengths */}
-
-                <div className="evaluation-section">
-
-                  <h3>
-                    What you did well
-                  </h3>
-
-                  <ul>
-
-                    {currentEvaluation.strengths.map(
-                      (
-                        strength,
-                        index
-                      ) => (
-
-                        <li
-                          key={index}
-                        >
-                          {strength}
-                        </li>
-
-                      )
-                    )}
-
-                  </ul>
-
-                </div>
-
-                {/* Improvements */}
-
-                <div className="evaluation-section">
-
-                  <h3>
-                    What you can improve
-                  </h3>
-
-                  <ul>
-
-                    {currentEvaluation.improvements.map(
-                      (
-                        improvement,
-                        index
-                      ) => (
-
-                        <li
-                          key={index}
-                        >
-                          {improvement}
-                        </li>
-
-                      )
-                    )}
-
-                  </ul>
-
-                </div>
-
-                {/* Better Answer */}
-
-                <div className="evaluation-section">
-
-                  <h3>
-                    Example of a stronger answer
-                  </h3>
-
-                  <p>
-                    {currentEvaluation.betterAnswer}
-                  </p>
-
-                </div>
-
-              </div>
-
-            )}
-
-            {/* =================================================
-                Submit Answer
-            ================================================= */}
-
-            {!currentEvaluation && (
-
-              <button
-                type="button"
-                className="submit-answer"
-                disabled={
-                  !answer.trim() ||
-                  isEvaluating
-                }
-                onClick={
-                  evaluateAnswer
-                }
-              >
-
-                {isEvaluating
-                  ? "Evaluating..."
-                  : "Submit Answer"}
-
-                <span>
-                  →
-                </span>
-
-              </button>
-
-            )}
-
-            {/* =================================================
-                Next Question
-            ================================================= */}
-
-            {currentEvaluation && (
-
-              <button
-                type="button"
-                className="submit-answer"
-                onClick={
-                  handleNextQuestion
-                }
-              >
-
-                {currentQuestionIndex ===
-                questions.length - 1
-                  ? "Finish Interview"
-                  : "Next Question"}
-
-                <span>
-                  →
-                </span>
-
-              </button>
-
-            )}
+            </button>
 
           </div>
 

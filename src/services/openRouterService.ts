@@ -5,7 +5,7 @@
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 const GEMINI_MODEL =
-  import.meta.env.VITE_GEMINI_MODEL || "gemini-3.6-flash";
+  import.meta.env.VITE_GEMINI_MODEL || "gemini-3.8-flash";
 
 const MAX_OUTPUT_TOKENS = 3000;
 
